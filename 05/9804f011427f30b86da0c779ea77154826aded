@@ -1,0 +1,73 @@
+evaluator-rubric.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-53
+scripts/ui-test.sh
+  s_3e829881b83b35::t_b08936d4bbed83 1-12,18-19
+  s_3e829881b83b35::t_37d42d02841f86 13-17
+session-handoff.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-4,6-10,14-16,20-22,27-29,34,40-42,44-46
+  s_3e829881b83b35::t_a79aef395ae44d 5,11-13,17-19,23-26,30-33,35-39,43,47-58
+.claude/agents/tester.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-56
+scripts/test.sh
+  s_3e829881b83b35::t_b08936d4bbed83 1-13
+.claude/agents/architect.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-68
+quality-document.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-55
+scripts/integration.sh
+  s_3e829881b83b35::t_b08936d4bbed83 1-14
+.claude/agents/developer.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-50
+.claude/agents/code-reviewer.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-85
+claude-progress.md
+  s_3e829881b83b35::t_4a92e5a712c927 7,9-10,13-16,19-24,27,30,32
+  s_3e829881b83b35::t_b08936d4bbed83 1-6,8,11-12,17-18,25-26,28-29,31
+docs/architecture-rules.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-139
+scripts/lint.sh
+  s_3e829881b83b35::t_b08936d4bbed83 1-25
+docs/RELIABILITY.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-10,15-21,26-38,40-42,44-46,48-50,52-56,62-64,66-68,70-76,78-80,82-84
+  s_3e829881b83b35::t_e4b56afd878734 11-14,22-25,39,43,47,51,57-61,65,69,77,81,85
+scripts/code-review.sh
+  s_3e829881b83b35::t_b08936d4bbed83 1-73
+docs/PRODUCT.md
+  s_3e829881b83b35::t_e4b56afd878734 15-17,23-27,31-35,41-43,52-55,59
+  s_3e829881b83b35::t_b08936d4bbed83 1-14,18-22,28-30,36-40,44-51,56-58
+CLAUDE.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-70,74-134
+  s_3e829881b83b35::t_7ee35ff3111f65 71-73
+.claude/agents/orchestrator.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-55
+docs/ARCHITECTURE.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-10,12-14,18-35,40-42,45-64,66-68,72-82
+  s_3e829881b83b35::t_e4b56afd878734 11,15-17,36-39,43-44,65,69-71
+.claude/agents/designer.md
+  s_3e829881b83b35::t_b08936d4bbed83 1-97
+feature_list.json
+  s_3e829881b83b35::t_b08936d4bbed83 1-118
+scripts/architecture-review.sh
+  s_3e829881b83b35::t_b08936d4bbed83 1-155
+clean-state-checklist.md
+  s_3e829881b83b35::t_37d42d02841f86 12,21,26,29,37,45,53,72
+  s_3e829881b83b35::t_b08936d4bbed83 1-11,13-20,22-25,27-28,30-36,38-44,46-52,54-71,73-78
+.gitignore
+  s_3e829881b83b35::t_b9fe496eb948a9 224-228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "059804f011427f30b86da0c779ea77154826aded",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
