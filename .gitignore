@@ -221,3 +221,8 @@ __marimo__/
 
 # Superpowers brainstorm scratch
 .superpowers/
+
+# Harness gate reports
+.lint-report.txt
+.claude-review.md
+.architecture-review.md

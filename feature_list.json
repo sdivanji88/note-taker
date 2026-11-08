@@ -1,0 +1,118 @@
+{
+  "project": "note-taker",
+  "description": "Note Taker is a local macOS desktop app that turns highlights from books into a personal, git-backed knowledge base. The user photographs yellow-highlighted pages of physical books (or pastes Kindle highlight text), drops a batch of photos into an Electron app, reviews and edits drafts extracted by a configurable OCR (Tesseract) or local vision model (Ollama), and pushes approved highlights as markdown sections appended to one file per book (`books/<slug>.md`) in a GitHub repo they own, so they can recall a book's takeaways and apply them at work.",
+  "features": [
+    {
+        "id": "backend-scaffold-models",
+        "name": "Backend scaffold, models, paths, settings store",
+        "plan_task": 1,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "batch-store",
+        "name": "JSON-per-batch store with photo dedupe",
+        "plan_task": 2,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "markdown-writer",
+        "name": "Slugify + append-only markdown writer with markers",
+        "plan_task": 3,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "book-catalog",
+        "name": "Book catalog: repo scan + global pending books",
+        "plan_task": 4,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "git-publisher",
+        "name": "Git publisher with safe rollback (no hard reset)",
+        "plan_task": 5,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "push-service",
+        "name": "Idempotent push service with crash recovery",
+        "plan_task": 6,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "extraction-queue",
+        "name": "Imaging helpers, extractor interface, extraction queue",
+        "plan_task": 7,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "ollama-extractor",
+        "name": "Ollama vision extractor",
+        "plan_task": 8,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "tesseract-extractor",
+        "name": "Tesseract highlight-mask extractor",
+        "plan_task": 9,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "janitor",
+        "name": "Batch expiry janitor (30d default, warning first)",
+        "plan_task": 10,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "rest-api",
+        "name": "FastAPI REST API, SSE, CLI entrypoint",
+        "plan_task": 11,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "electron-shell",
+        "name": "Electron scaffold, backend lifecycle, typed API client",
+        "plan_task": 12,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "batch-screens",
+        "name": "Batch list + batch grid screens",
+        "plan_task": 13,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "review-editor",
+        "name": "One-page-at-a-time review editor",
+        "plan_task": 14,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "settings-screen",
+        "name": "Settings screen + repo connection",
+        "plan_task": 15,
+        "status": "todo",
+        "evidence": ""
+    },
+    {
+        "id": "e2e-readme",
+        "name": "Electron e2e smoke test + README",
+        "plan_task": 16,
+        "status": "todo",
+        "evidence": ""
+    }
+]
+}
