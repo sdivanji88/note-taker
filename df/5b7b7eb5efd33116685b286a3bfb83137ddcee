@@ -1,0 +1,22 @@
+docs/superpowers/specs/2026-11-08-note-taker-design.md
+  s_3e829881b83b35::t_863dcbc3b0b380 1-296
+  s_3e829881b83b35::t_a660dd9675b061 297-323
+.gitignore
+  s_3e829881b83b35::t_3784a98d6700ce 221-223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "df5b7b7eb5efd33116685b286a3bfb83137ddcee",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
