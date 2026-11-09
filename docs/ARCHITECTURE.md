@@ -40,7 +40,7 @@ For each module, document:
 
 ## Persistence model
 
-File-based, no database. Data dir `~/Library/Application Support/note-taker/`: `settings.json`, `pending_books.json`, `batches/<id>/batch.json` + `photos/`, `repo/` (default clone).
+File-based, no database. Data dir `~/Library/Application Support/note-taker-frontend/` (Electron userData; override with `NOTE_TAKER_DATA_DIR`): `settings.json`, `pending_books.json`, `batches/<id>/batch.json` + `photos/`, `repo/` (default clone).
 Entities (spec §6, §12.1): Settings; Book (frontmatter of `books/<slug>.md`); PendingBook; Batch 1—n Capture; Capture 1—n Highlight. Page/chapter/captured_at/book live on Capture; text/note on Highlight. Capture states: pending → extracting → ready|failed → approved → pushed (| discarded). No migrations: models are versionless JSON in v1; add a `schema_version` field if the shape changes.
 
 ## External dependencies
