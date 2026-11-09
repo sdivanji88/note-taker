@@ -91,7 +91,7 @@ export function useCaptureDraft(capture: Capture, onSaved: (c: Capture) => void)
   )
 
   // Resolves true once everything typed so far is saved; false if a save failed or the
-  // page number is invalid (so navigation never silently drops it).
+  // page number is invalid (so leaving the capture never silently drops it).
   const flush = useCallback(async (): Promise<boolean> => {
     clearTimeout(debounce.current)
     clearTimeout(retryTimer.current)
@@ -102,9 +102,10 @@ export function useCaptureDraft(capture: Capture, onSaved: (c: Capture) => void)
         continue
       }
       const cur = draftRef.current
-      if (!pageIsValid(cur)) return false
+      // buildPatch withholds an invalid page, so every other edit is still saved; only
+      // once the queue is drained does the invalid page make this report "not saved".
       const patch = buildPatch(cur, dirtyFields(cur, baseRef.current))
-      if (!patch) return true
+      if (!patch) return pageIsValid(cur)
       if (!(await send(patch, cur))) return false
     }
   }, [send])

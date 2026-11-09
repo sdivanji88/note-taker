@@ -4,6 +4,7 @@ interface Props {
   title: string
   message: string
   confirmLabel: string
+  cancelLabel?: string
   onConfirm: () => void
   onCancel: () => void
 }
@@ -11,7 +12,7 @@ interface Props {
 // Rendered in-page rather than via window.confirm so it is testable and looks the same in
 // Electron. Focus starts on Cancel: the actions that use this are destructive, and a
 // stray Enter should not be the thing that deletes.
-export default function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }: Props) {
+export default function ConfirmDialog({ title, message, confirmLabel, cancelLabel = 'Cancel', onConfirm, onCancel }: Props) {
   const cancelRef = useRef<HTMLButtonElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
 
@@ -45,7 +46,7 @@ export default function ConfirmDialog({ title, message, confirmLabel, onConfirm,
         <h2 id="confirm-title">{title}</h2>
         <p>{message}</p>
         <div className="row">
-          <button ref={cancelRef} onClick={onCancel}>Cancel</button>
+          <button ref={cancelRef} onClick={onCancel}>{cancelLabel}</button>
           <button ref={confirmRef} className="danger" onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </div>

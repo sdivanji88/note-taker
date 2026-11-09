@@ -175,7 +175,15 @@ describe('ReviewEditor errors', () => {
   }
 
   it('409 batch_pushing', async () => {
-    await failApprove(new ApiError(409, 'batch_pushing', 'x'))
+    const s = setup([ready()])
+    s.patchCapture.mockRejectedValueOnce(new ApiError(409, 'batch_pushing', 'x'))
+    const open = s.getBatch.getMockImplementation()!
+    s.start()
+    await settle()
+    // The push starts after the page loaded; the 409 is how the editor finds out.
+    s.getBatch.mockImplementation(async () => ({ ...(await open()), status: 'pushing' as const }))
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    await settle()
     expect(screen.getByRole('alert')).toHaveTextContent('A push is running for this batch; try again when it finishes.')
     expect(screen.getByLabelText('Chapter')).toBeDisabled()
   })
@@ -196,6 +204,7 @@ describe('ReviewEditor errors', () => {
     const s = await failApprove(new ApiError(404, 'capture_not_found', 'capture not found'))
     expect(screen.getByRole('alert')).toHaveTextContent('This capture no longer exists.')
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
+    await settle()
     expect(s.onBack).toHaveBeenCalled()
   })
 

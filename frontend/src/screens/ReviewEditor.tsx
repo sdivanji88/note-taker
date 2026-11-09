@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useApi } from '../api/context'
 import type { Batch, Capture, ExtractorKind } from '../api/types'
 import CapturePane, { type PaneActions } from '../components/CapturePane'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { isGone, reviewErrorMessage } from '../review/draft'
 
 interface Props {
@@ -38,6 +39,8 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
   const [problem, setProblem] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [extractor, setExtractor] = useState<ExtractorKind | null>(null)
+  const [loads, setLoads] = useState(0)
+  const [confirmLeave, setConfirmLeave] = useState(false)
   const actionsRef = useRef<PaneActions | null>(null)
   const mounted = useRef(true)
   // Bumped whenever a PATCH result is merged; a re-fetch that started before that is stale.
@@ -45,14 +48,15 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
   const lastIndex = useRef(index)
   const byKeyboard = useRef(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<void> => {
     const started = mutations.current
     try {
       const b = await api.getBatch(batchId)
       if (!mounted.current) return
       // A save finished while this request was in flight: its data may predate that save.
-      if (mutations.current !== started) return void load()
+      if (mutations.current !== started) return load()
       setBatch(b)
+      setLoads((n) => n + 1)
       setProblem(null)
     } catch (e) {
       if (!mounted.current) return
@@ -131,6 +135,13 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
     if (!moveTo(1) && !moveTo(-1)) onBack()
   }, [moveTo, onBack])
 
+  // Leaving counts as navigation: unsaved edits must be saved first, and if they can't be
+  // the user decides explicitly instead of losing them to the unmount flush.
+  const back = useCallback(async () => {
+    if (!actionsRef.current || (await actionsRef.current.flush())) onBack()
+    else if (mounted.current) setConfirmLeave(true)
+  }, [onBack])
+
   const keys = useRef({ go, approve: () => actionsRef.current?.approve() })
   keys.current = { go, approve: () => actionsRef.current?.approve() }
   useEffect(() => {
@@ -151,7 +162,7 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
 
   return (
     <main className="screen review">
-      <button type="button" onClick={onBack}>← Back to batch</button>
+      <button type="button" onClick={() => void back()}>← Back to batch</button>
       {problem && <p role="alert" className="error">{problem}</p>}
       {!problem && !batch && <p>Loading…</p>}
       {batch && !current && <p>Nothing left to review in this batch.</p>}
@@ -164,14 +175,25 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
           batchDefaultSlug={batch.default_book_slug}
           batchPushing={batch.status === 'pushing'}
           extractorName={extractor}
+          loads={loads}
           focusFirst={!byKeyboard.current}
           actionsRef={actionsRef}
           onSaved={merge}
-          onRefresh={() => void load()}
+          onRefresh={load}
           onPrev={() => void go(-1)}
           onNext={() => void go(1)}
           onApproved={afterApproved}
           onDiscarded={afterDiscarded}
+        />
+      )}
+      {confirmLeave && (
+        <ConfirmDialog
+          title="Leave without saving?"
+          message="Your latest edits on this capture could not be saved. Stay to retry, or leave and lose them."
+          confirmLabel="Leave without saving"
+          cancelLabel="Stay"
+          onConfirm={onBack}
+          onCancel={() => setConfirmLeave(false)}
         />
       )}
     </main>

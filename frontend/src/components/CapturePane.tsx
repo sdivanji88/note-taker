@@ -23,10 +23,12 @@ interface Props {
   batchDefaultSlug: string | null
   batchPushing: boolean
   extractorName: ExtractorKind | null
+  // Counts successful batch (re-)fetches, so the pane can tell a fresh answer from the old one.
+  loads: number
   focusFirst: boolean
   actionsRef: MutableRefObject<PaneActions | null>
   onSaved: (c: Capture) => void
-  onRefresh: () => void
+  onRefresh: () => Promise<void>
   onPrev: () => void
   onNext: () => void
   onApproved: () => void
@@ -41,7 +43,10 @@ export default function CapturePane(props: Props) {
   const { draft, edit, save, flush } = useCaptureDraft(capture, onSaved)
   const [actionError, setActionError] = useState<string | null>(null)
   const [gone, setGone] = useState(false)
-  const [pushing, setPushing] = useState(false)
+  // Set by a 409 batch_pushing; cleared (and the held edit re-sent) once a fresh batch
+  // fetch says the push is over. Read-only while pushing comes from the batch itself.
+  const [pushHeld, setPushHeld] = useState(false)
+  const heldAtLoad = useRef(0)
   const [busy, setBusy] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [rotated, setRotated] = useState(false)
@@ -54,7 +59,7 @@ export default function CapturePane(props: Props) {
 
   const { status } = capture
   const unfinished = status === 'pending' || status === 'extracting'
-  const isPushingNow = props.batchPushing || pushing || (save.kind === 'error' && save.pushing)
+  const isPushingNow = props.batchPushing || pushHeld
   const readOnly = unfinished || isPushingNow
   const isGoneNow = gone || (save.kind === 'error' && save.gone)
   const pageOk = pageIsValid(draft)
@@ -65,6 +70,22 @@ export default function CapturePane(props: Props) {
       mounted.current = false
     }
   }, [])
+  const holdForPush = () => {
+    heldAtLoad.current = props.loads
+    setPushHeld(true)
+    void onRefresh()
+  }
+  const autosavePushed = save.kind === 'error' && save.pushing
+  useEffect(() => {
+    if (autosavePushed && !pushHeld) holdForPush()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autosavePushed])
+  useEffect(() => {
+    if (pushHeld && !props.batchPushing && props.loads > heldAtLoad.current) {
+      setPushHeld(false)
+      void flush()
+    }
+  }, [pushHeld, props.batchPushing, props.loads, flush])
   useEffect(() => {
     // Keyboard navigation keeps focus off the inputs so the next arrow press still works.
     ;(props.focusFirst ? firstField.current : root.current)?.focus()
@@ -90,8 +111,8 @@ export default function CapturePane(props: Props) {
       if (!mounted.current) return false
       setActionError(reviewErrorMessage(e))
       if (isGone(e)) setGone(true)
-      if (isPushing(e)) setPushing(true)
-      if (e instanceof ApiError && e.code === 'invalid_transition') onRefresh()
+      if (isPushing(e)) holdForPush()
+      if (e instanceof ApiError && e.code === 'invalid_transition') void onRefresh()
       return false
     } finally {
       busyRef.current = false
@@ -102,11 +123,10 @@ export default function CapturePane(props: Props) {
   const patch = async (body: Parameters<typeof api.patchCapture>[1]) => onSaved(await api.patchCapture(capture.id, body))
 
   async function approve(): Promise<boolean> {
-    if (status === 'approved') {
-      props.onApproved()
-      return true
-    }
+    // Already-approved captures are editable too, so they still flush (and may be refused)
+    // before moving on.
     const ok = await act(async () => {
+      if (status === 'approved') return
       // A failed capture the user fixed by hand has to become ready first.
       if (status === 'failed') await patch({ status: 'ready' })
       await patch({ status: 'approved' })
@@ -117,7 +137,8 @@ export default function CapturePane(props: Props) {
   // After commit, not during render. The parent clears it when no pane is shown; a
   // successor pane overwrites it, so an unmounting pane must not null it out.
   useEffect(() => {
-    actionsRef.current = { flush, approve }
+    // A capture that no longer exists has nothing to save, so leaving it never prompts.
+    actionsRef.current = isGoneNow ? { flush: async () => true, approve: async () => false } : { flush, approve }
   })
 
   const unapprove = () => void act(() => patch({ status: 'ready' }))
@@ -166,6 +187,8 @@ export default function CapturePane(props: Props) {
                 Couldn&apos;t save — retrying…{' '}
                 <button type="button" className="link" onClick={() => void flush()}>Retry now</button>
               </>
+            ) : !pageOk ? (
+              'Not saved — fix the page number'
             ) : (
               SAVE_TEXT[save.kind]
             )}
