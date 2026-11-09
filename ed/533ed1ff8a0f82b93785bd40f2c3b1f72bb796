@@ -1,0 +1,29 @@
+frontend/tests/BatchGrid.test.tsx
+  s_3e829881b83b35::t_56720f746ee637 19-23,34
+frontend/src/components/ReviewFooter.tsx
+  s_3e829881b83b35::t_6280455bbd7ae5 10-13,33,37,43
+frontend/src/components/CapturePane.tsx
+  s_3e829881b83b35::t_6280455bbd7ae5 64-66,203-210,274-275
+frontend/tests/ReviewEditor.test.tsx
+  s_3e829881b83b35::t_56720f746ee637 63-95
+frontend/src/components/Thumb.tsx
+  s_3e829881b83b35::t_6280455bbd7ae5 59-61
+frontend/tests/reviewSetup.tsx
+  s_3e829881b83b35::t_56720f746ee637 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "ed533ed1ff8a0f82b93785bd40f2c3b1f72bb796",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
