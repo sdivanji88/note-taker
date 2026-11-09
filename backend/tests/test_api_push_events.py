@@ -9,6 +9,7 @@ from api_helpers import (
     error_code,
     kindle,
     new_batch,
+    put_settings,
     read_sse,
     remote_text,
     repo_path,
@@ -79,6 +80,8 @@ def test_push_git_failure_502_masks_credentials(client, bare_remote):
     c = kindle(client, b)
     client.patch(f"/captures/{c['id']}", headers=H, json={"status": "approved"})
     bad = "https://me:ghp_TOKEN@127.0.0.1:1/me/notes.git"
+    # Settings and origin agree (else the push is refused as remote_mismatch before git runs).
+    put_settings(client, remote_url=bad)
     subprocess.run(["git", "-C", str(repo_path(client)), "remote", "set-url", "origin", bad], check=True)
     r = client.post(f"/batches/{b}/push", headers=H)
     assert r.status_code == 502

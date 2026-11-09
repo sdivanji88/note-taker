@@ -35,7 +35,11 @@ function pushErrorMessage(e: unknown): string {
     if (e.status === 409 && e.code === 'dirty_repo')
       return 'Your notes repo has uncommitted changes. Commit or stash them, then push again.'
     if (e.status === 409 && e.code === 'not_cloned') return 'Connect your notes repo in Settings first.'
-    if (e.status === 409 && e.code === 'batch_pushing') return 'A push is already running for this batch.'
+    // The backend's message names the actual branch/remote, so it is kept after the summary.
+    if (e.status === 409 && e.code === 'wrong_branch')
+      return `Your notes clone is on a different branch than the one in Settings: ${e.message}`
+    if (e.status === 409 && e.code === 'remote_mismatch')
+      return `Your notes clone's origin is not the remote in Settings: ${e.message}`
     if (e.status === 422 && e.code === 'unknown_book')
       return 'Choose a book for every approved capture before pushing.'
   }

@@ -162,7 +162,9 @@ def test_push_failure_rolls_back(env):
 
 def test_push_failure_when_remote_unreachable(env, tmp_path):
     env.books.create("Dune", None, Kind.fiction)
-    git(env.clone, "remote", "set-url", "origin", str(tmp_path / "nonexistent.git"))
+    gone = str(tmp_path / "nonexistent.git")
+    env.settings.notes_repo.remote_url = gone  # else refused as remote_mismatch before git runs
+    git(env.clone, "remote", "set-url", "origin", gone)
     head_before = git(env.clone, "rev-parse", "HEAD")
     batch = add_batch(env, "dune")
 

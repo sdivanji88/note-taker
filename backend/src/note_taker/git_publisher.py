@@ -93,6 +93,21 @@ class GitPublisher:
         out = self._run("status", "--porcelain", "--untracked-files=all", "--", books_dir).stdout
         return any(line.startswith("??") for line in out.splitlines())
 
+    def current_branch(self) -> str | None:
+        """The checked-out branch, or None for a detached HEAD."""
+        r = self._run("symbolic-ref", "--quiet", "--short", "HEAD", check=False)
+        if r.returncode == 1:  # --quiet: exit 1 means detached, anything else is an error
+            return None
+        if r.returncode != 0:
+            raise GitError(r.stderr)
+        return r.stdout.strip()
+
+    def origin_url(self) -> str | None:
+        # The URL as configured, not `git remote get-url`: that applies the user's
+        # insteadOf rewrites, so a clone made from the configured URL would not match it.
+        r = self._run("config", "--get", "remote.origin.url", check=False)
+        return r.stdout.strip() if r.returncode == 0 else None
+
     def head(self) -> str:
         return self._run("rev-parse", "HEAD").stdout.strip()
 

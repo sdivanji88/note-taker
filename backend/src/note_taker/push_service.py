@@ -12,6 +12,7 @@ from note_taker.events import EventBus
 from note_taker.git_publisher import GitError, GitPublisher
 from note_taker.markdown_writer import append_highlights, existing_marker_ids
 from note_taker.models import Batch, BatchStatus, Book, Capture, CaptureStatus, Highlight, Settings
+from note_taker.redact import mask_credentials
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ _Group = tuple[Book, list[tuple[Capture, Highlight]]]
 
 
 class PushError(Exception):
-    """code is one of: dirty_repo, not_cloned, nothing_to_push, unknown_book, git_failed."""
+    """code is one of: dirty_repo, not_cloned, nothing_to_push, unknown_book, git_failed,
+    wrong_branch, remote_mismatch."""
 
     def __init__(self, code: str, message: str = ""):
         super().__init__(message or code)
@@ -177,6 +179,10 @@ class PushService:
             git = self._git_factory()
             if not git.is_cloned() or git.is_dirty(self._settings().notes_repo.books_dir):
                 return
+            if (problem := self._clone_mismatch(git)) is not None:
+                # Never rebase a branch the user checked out for their own work.
+                log.info("repo sync skipped: %s", problem)
+                return
             # Short timeout: this runs inside GET /books, which the UI waits on.
             git.pull_rebase(timeout_s=_SYNC_TIMEOUT_S)
         except GitError as exc:
@@ -194,6 +200,37 @@ class PushService:
         if dirty:
             # Never reset the user's work away; they must commit or discard it themselves.
             raise PushError("dirty_repo", "notes repo has uncommitted changes")
+        if (problem := self._clone_mismatch(git)) is not None:
+            raise problem
+
+    def _clone_mismatch(self, git: GitPublisher) -> PushError | None:
+        # Pushing does `HEAD:refs/heads/<branch>`, so from any other branch it would
+        # publish that branch's commits to the configured one; and an `origin` other
+        # than the configured remote would publish to a repo the user did not pick.
+        repo = self._settings().notes_repo
+        try:
+            branch = git.current_branch()
+            origin = git.origin_url() if repo.remote_url else None
+        except GitError as exc:
+            return PushError("git_failed", _detail(exc))
+        if branch != repo.branch:
+            where = f"on {branch}" if branch else "on a detached HEAD"
+            return PushError(
+                "wrong_branch",
+                mask_credentials(
+                    f"the notes clone is {where}; check out {repo.branch} "
+                    "or change the branch in Settings"
+                ),
+            )
+        if repo.remote_url and origin != repo.remote_url:
+            return PushError(
+                "remote_mismatch",
+                mask_credentials(
+                    f"the notes clone's origin is {origin or 'not set'}, but Settings say "
+                    f"{repo.remote_url}; fix origin in the clone or change the remote in Settings"
+                ),
+            )
+        return None
 
     def _group_by_book(self, batch: Batch, captures: list[Capture]) -> dict[str, _Group]:
         groups: dict[str, _Group] = {}

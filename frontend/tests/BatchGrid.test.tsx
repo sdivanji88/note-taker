@@ -105,7 +105,8 @@ describe('BatchGrid', () => {
 
   it.each([
     [409, 'not_cloned', 'x', 'Connect your notes repo in Settings first.'],
-    [409, 'batch_pushing', 'x', 'A push is already running for this batch.'],
+    [409, 'wrong_branch', 'the notes clone is on wip; check out main', 'Your notes clone is on a different branch than the one in Settings: the notes clone is on wip; check out main'],
+    [409, 'remote_mismatch', 'origin differs', "Your notes clone's origin is not the remote in Settings: origin differs"],
     [422, 'unknown_book', 'x', 'Choose a book for every approved capture before pushing.'],
     [502, 'git_failed', 'remote: <i>denied</i>', 'remote: <i>denied</i>'],
     [500, 'other', 'something broke', 'something broke']

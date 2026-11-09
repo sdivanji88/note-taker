@@ -23,6 +23,8 @@ _PUSH_ERROR_STATUS = {
     "nothing_to_push": 400,
     "git_failed": 502,
     "unknown_book": 422,
+    "wrong_branch": 409,
+    "remote_mismatch": 409,
 }
 
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed", 413: "payload_too_large"}
