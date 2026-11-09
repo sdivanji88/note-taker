@@ -1,0 +1,38 @@
+backend/tests/test_settings_store.py
+  s_3e829881b83b35::t_d1d3482727026e 1-17
+backend/src/note_taker/jsonio.py
+  s_3e829881b83b35::t_ee4c5ad494bd5d 1-28
+backend/.python-version
+  s_3e829881b83b35::t_7ae72732128fe5 1
+backend/tests/test_models.py
+  s_3e829881b83b35::t_d1d3482727026e 1-19
+backend/src/note_taker/paths.py
+  s_3e829881b83b35::t_ee4c5ad494bd5d 1-40
+backend/pyproject.toml
+  s_3e829881b83b35::t_7ae72732128fe5 1-32
+  s_3e829881b83b35::t_d1d3482727026e 33-37
+backend/src/note_taker/models.py
+  s_3e829881b83b35::t_ee4c5ad494bd5d 1-169
+backend/src/note_taker/settings_store.py
+  s_3e829881b83b35::t_ee4c5ad494bd5d 1-15
+backend/tests/conftest.py
+  s_3e829881b83b35::t_d1d3482727026e 1-64
+backend/uv.lock
+  s_3e829881b83b35::t_2e6d19e4faf329 1-698
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "0b26951b156c20761a0348def50c79ca3227289b",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
