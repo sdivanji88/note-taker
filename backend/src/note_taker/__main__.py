@@ -62,7 +62,9 @@ def watch_parent_stdin(server, stdin, grace_s: float = 5.0, exit_fn=os._exit) ->
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
-    token = os.environ.get("NOTE_TAKER_TOKEN") or args.token
+    # Popped, not read: every subprocess (git, its hooks and credential helpers,
+    # tesseract) inherits os.environ, and none of them may see the session token.
+    token = os.environ.pop("NOTE_TAKER_TOKEN", None) or args.token
     if not token:
         parser.error("a session token is required: set NOTE_TAKER_TOKEN (or pass --token)")
 
