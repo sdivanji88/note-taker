@@ -51,7 +51,8 @@ cd frontend && npm run dev   # spawns the backend; or backend alone: cd backend 
 - Background extraction saves with `touch=False` so it doesn't reset batch expiry; user edits do.
 - Expired batches are deleted only ≥24h after `warned_at` was set.
 - `<img>`/`EventSource` can't send headers → token via `?token=` allowed only on `/captures/{id}/image` and `/batches/{id}/events`.
-- Default tests exclude `-m live` (real Ollama/Tesseract). Phone photos may carry EXIF rotation — always `load_upright`.
+- Default tests exclude `-m live` (real Ollama/Tesseract). Phone photos may carry EXIF rotation, or be sideways in the pixels with no tag — always go through `load_upright(path, capture.rotation)`.
+- Fixture photos carry GPS: only `backend/tests/fixtures/sample-p163.jpg` is committed; never commit unstripped phone photos.
 - `.superpowers/` is brainstorm scratch (gitignored).
 
 ## Architecture rules (summary)

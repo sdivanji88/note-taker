@@ -23,7 +23,7 @@ All 16 plan tasks, tracked in `feature_list.json` (all `status: "todo"`). Do the
 - **Decision:** execution method is **superpowers:subagent-driven-development**. A fresh implementer subagent works on each plan task, a fresh reviewer gates it before the next task starts, and the whole branch gets a final review. **Why:** the user chose it, the tasks depend on each other's interfaces, and the git-safety tasks (5–6) protect the user's real notes repo. **Trade-off:** more tokens per task.
 - **Decision:** every product decision is in the spec's decision log (§13, D1–D21). §12 "Builder-check resolutions" overrides earlier spec sections. In the spec, **[user]** marks decisions the user made and **[call]** marks designer's calls. Don't relitigate the [user] ones.
 - **Open (non-blocking):** the default Ollama vision model is a placeholder (`qwen2.5vl:7b`). Pick it in Task 8 by running the live tests on real photos.
-- **Needs from user (non-blocking):** real highlighted-page photos in `backend/tests/fixtures/`, including the *Permutation City* p.163 example. Live tests fall back to synthetic images until then.
+- **Fixtures are in place:** 7 real *Permutation City* photos in `backend/tests/fixtures/`. They carry GPS, so only `sample-p163.jpg` (stripped, 1600px) is committed and the `PXL_*.jpg` originals are gitignored. **Never commit a phone photo without stripping EXIF.** `PXL_20261109_120732142.jpg` is rotated in the pixels with no EXIF tag, so the plan now includes rotation detection (`imaging.detect_rotation`), `Capture.rotation`, and a Rotate button (Tasks 1, 7, 9, 11, 14).
 
 ## Files modified
 

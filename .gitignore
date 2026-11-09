@@ -226,3 +226,11 @@ __marimo__/
 .lint-report.txt
 .claude-review.md
 .architecture-review.md
+
+# macOS
+.DS_Store
+
+# Test photos: originals carry GPS; only the stripped sample and README are tracked
+backend/tests/fixtures/*
+!backend/tests/fixtures/README.md
+!backend/tests/fixtures/sample-p163.jpg

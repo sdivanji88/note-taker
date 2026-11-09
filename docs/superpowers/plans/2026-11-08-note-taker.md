@@ -52,7 +52,7 @@
 
 1. **Highlight text with blank lines, a leading `>`, or markdown characters** (pasted Kindle text often has paragraph breaks). Every line, including blank ones, must stay inside the blockquote, so the section doesn't break apart. → test `test_render_multiparagraph_text_stays_quoted` in Task 3.
 2. **Book titles with punctuation, colons or non-ASCII** (e.g. "Measure What Matters: OKRs", "Ćirković’s Notes"). They must give a stable ASCII slug and valid YAML frontmatter. → tests `test_slugify_cases` and `test_frontmatter_with_colon_roundtrips` in Task 3.
-3. **Photos with no EXIF, or with EXIF rotation** (phone photos are often stored sideways). `captured_at` must fall back to the file mtime, and the image is rotated upright before extraction and display. → test `test_load_upright_applies_orientation` and `test_captured_at_falls_back_to_mtime` in Task 7.
+3. **Photos with no EXIF, with EXIF rotation, or rotated in the pixels with *no* orientation tag** (real fixture `PXL_20261109_120732142.jpg` is 4080×3072 with sideways text and EXIF orientation=1). `captured_at` must fall back to the file mtime. The image must be upright before extraction and display: EXIF first, then a detected or user-set `Capture.rotation`. → tests `test_load_upright_applies_orientation`, `test_load_upright_applies_extra_rotation`, `test_detect_rotation_on_sideways_image` and `test_captured_at_falls_back_to_mtime` in Task 7, and `test_rotate_button_patches_rotation_and_offers_retry` in Task 14.
 4. **Ollama returns malformed JSON, `page` as a string like `"163"`, or no highlights.** The first becomes a `failed` capture with a readable error. The second is coerced to an int. The third becomes `ready` with an empty list, which can't be approved. → tests in Task 8 and `test_approve_requires_text_and_book` in Task 11.
 5. **Two batches pushing to the same book at once** (several open batches is a user requirement). Pushes are serialized by a process-wide lock, and both sets of sections land in order without corrupting the file. → test `test_concurrent_pushes_serialize` in Task 6.
 
@@ -117,7 +117,7 @@ README.md                                # prerequisites + dev run
     - `BatchStatus{open,pushing,pushed,discarded}`
     - `ExtractorKind{ollama,tesseract}`
   - `Highlight(id: str = ulid, text: str, note: str | None = None)`
-  - `Capture(id, source, image_file: str | None, image_sha256: str | None, book_slug: str | None, page: int | None, chapter: str | None, captured_at: datetime, status: CaptureStatus, error: str | None, extractor_used: str | None, highlights: list[Highlight] = [])`
+  - `Capture(id, source, image_file: str | None, image_sha256: str | None, rotation: int = 0 (clockwise degrees applied after EXIF; validator: one of 0/90/180/270), book_slug: str | None, page: int | None, chapter: str | None, captured_at: datetime, status: CaptureStatus, error: str | None, extractor_used: str | None, highlights: list[Highlight] = [])`
   - `Batch(id, default_book_slug: str | None, created_at, updated_at, status: BatchStatus = open, warned_at: datetime | None, captures: list[Capture] = [])`
     - method `is_finished() -> bool`: True iff there's ≥1 capture and all captures are `pushed`/`discarded`
     - method `expires_at(expiry_days: int) -> datetime`
@@ -137,7 +137,7 @@ README.md                                # prerequisites + dev run
 - Produces (`settings_store.py`): `SettingsStore(paths: DataPaths)` with `.load() -> Settings` (defaults if the file is missing) and `.save(s: Settings) -> None`.
 - Produces (`conftest.py` fixtures):
   - `data_paths` (a DataPaths on `tmp_path`)
-  - `make_image(tmp_path)` factory: `(name, fmt="PNG", highlight_text="mathematical possibility", plain_text="other words", exif_orientation=None, exif_datetime=None) -> Path`. It draws black text on white, with a yellow (255,235,59) rectangle behind `highlight_text`.
+  - `make_image(tmp_path)` factory: `(name, fmt="PNG", highlight_text="mathematical possibility", plain_text="other words", exif_orientation=None, exif_datetime=None, pixel_rotation=0) -> Path`. `pixel_rotation` (degrees, clockwise) rotates the drawn pixels with no EXIF tag, to mimic a sideways photo. It draws black text on white, with a yellow (255,235,59) rectangle behind `highlight_text`.
 
 - [ ] **Step 1: Scaffold.**
   - Run `uv init --package --name note-taker backend` (Python 3.12).
@@ -400,13 +400,14 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
 
 **Interfaces:**
 - Produces (`imaging.py`):
-  - `load_upright(path: Path) -> PIL.Image.Image` (via `ImageOps.exif_transpose`)
+  - `load_upright(path: Path, rotation: int = 0) -> PIL.Image.Image`: `ImageOps.exif_transpose`, then rotate clockwise by `rotation` degrees
+  - `detect_rotation(path: Path) -> int`: clockwise degrees (0/90/180/270) needed to make the text upright, from Tesseract OSD (`pytesseract.image_to_osd`) on a downscaled grayscale copy of the EXIF-corrected image. Returns 0 when Tesseract is missing, OSD fails, or its confidence is below 2.0. Never raises.
   - `captured_at(path: Path, fallback: datetime) -> datetime`: EXIF `DateTimeOriginal` (tag 36867) interpreted as local time, then the file mtime, then `fallback`
-  - `downscaled_jpeg_bytes(path: Path, max_edge: int = 2000) -> bytes`
+  - `downscaled_jpeg_bytes(path: Path, max_edge: int = 2000, rotation: int = 0) -> bytes` (upright via `load_upright(path, rotation)`)
 - Produces (`extractors/base.py`):
   - `class ExtractionError(Exception)`
   - `HealthStatus(ok: bool, detail: str)`
-  - `class Extractor(Protocol)` with `name: str`, `health() -> HealthStatus`, `extract(image_path: Path) -> ExtractionResult`
+  - `class Extractor(Protocol)` with `name: str`, `health() -> HealthStatus`, `extract(image_path: Path, rotation: int = 0) -> ExtractionResult` (extractors must work on `load_upright(image_path, rotation)`)
 - Produces (`extractors/fake.py`): `FakeExtractor(result: ExtractionResult | None = None, delay_s: float = 0, error: str | None = None, healthy: bool = True)`
 - Produces (`extractors/factory.py`): `build_extractor(s: ExtractorSettings, kind: ExtractorKind | None = None) -> Extractor`. Fill in the Ollama/Tesseract branches in Tasks 8–9; until then it raises `NotImplementedError`.
 - Produces (`extraction_queue.py`): `class ExtractionQueue(store, extractor_provider: Callable[[ExtractorKind | None], Extractor], events, concurrency: int = 1, timeout_s: float = 180, health_interval_s: float = 30)` with:
@@ -416,6 +417,7 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
   - `resume_pending() -> int`
 - `ExtractionQueue` behavior:
   - FIFO order.
+  - Before the first extraction of a photo capture whose `rotation` is 0, it calls `imaging.detect_rotation` and stores the result in `capture.rotation`. Later retries keep whatever the capture holds (the user may have changed it). It passes `capture.rotation` to `extract`.
   - It checks extractor health before each job. If unhealthy, the capture stays `pending` with `error="extractor unavailable: <detail>"`. A background loop calls `resume_pending()` every `health_interval_s` while any `pending` captures exist.
   - It runs `extract` in a `ThreadPoolExecutor` with `future.result(timeout=timeout_s)`.
   - On success: capture `ready`, `highlights` = the extracted texts (the extractor's `note` goes on the first highlight), `page`/`chapter` set only if the user hasn't already set them, `extractor_used` = the extractor name. It publishes `capture.extracted`.
@@ -435,6 +437,10 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
   - `test_queue_unhealthy_leaves_pending_then_resumes`: flip `healthy`, then call `resume_pending()`
   - `test_queue_does_not_touch_updated_at`
   - `test_queue_fifo_order`
+  - `test_load_upright_applies_extra_rotation`: `make_image(pixel_rotation=90)`; `load_upright(p, 270)` has the original orientation
+  - `test_detect_rotation_on_sideways_image` (skip if no tesseract): text image with `pixel_rotation=90` → `detect_rotation` returns 270; upright image → 0
+  - `test_detect_rotation_returns_zero_without_tesseract` (monkeypatch)
+  - `test_queue_sets_detected_rotation_once_and_keeps_user_value`: a capture with `rotation=90` is not overwritten
 - [ ] **Step 2: Run** `uv run pytest tests/test_imaging.py tests/test_extraction_queue.py -q`. Expected: FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** the same command plus the full suite. Expected: PASS.
@@ -450,8 +456,8 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
 **Interfaces:**
 - Produces: `OllamaVisionExtractor(base_url: str, model: str, timeout_s: float = 180)` with `name = "ollama:<model>"`.
   - `health()`: `GET /api/tags`. ok iff it responds and `model` is listed. The detail says "Ollama not reachable at …" or "model <m> not pulled (run: ollama pull <m>)".
-  - `extract(path)`: `POST /api/chat` with:
-    - `{"model": m, "stream": false, "format": <ExtractionResult JSON schema without raw>, "options": {"temperature": 0}, "messages": [{"role": "user", "content": PROMPT, "images": [b64(downscaled_jpeg_bytes(path))]}]}`
+  - `extract(path, rotation=0)`: `POST /api/chat` with:
+    - `{"model": m, "stream": false, "format": <ExtractionResult JSON schema without raw>, "options": {"temperature": 0}, "messages": [{"role": "user", "content": PROMPT, "images": [b64(downscaled_jpeg_bytes(path, rotation=rotation))]}]}`
     - It parses `message.content` as JSON into `ExtractionResult` and stores the response body in `raw`.
     - An HTTP error, invalid JSON, or schema mismatch raises `ExtractionError` with a short message.
 - PROMPT (exact copy, tune later during live testing):
@@ -463,7 +469,8 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
   - `test_malformed_json_raises_extraction_error`
   - `test_http_500_raises_extraction_error`
   - `test_health_reports_missing_model`
-  - `@pytest.mark.live test_live_extract_sample`: uses a `make_image` photo, or `backend/tests/fixtures/*.jpg` if present, and asserts "mathematical" is in some highlight
+  - `@pytest.mark.live test_live_extract_sample_p163`: runs on `backend/tests/fixtures/sample-p163.jpg` (committed) and asserts "mathematical possibility" is in some highlight and `page == 163`
+  - `@pytest.mark.live test_live_all_local_fixtures_report`: for every local `PXL_*.jpg` (skipped if none), runs extraction with `detect_rotation` applied, prints highlights/note/page per photo, and asserts no `ExtractionError`. Used to pick the default model; not a pass/fail accuracy test
 - [ ] **Step 2: Run** `uv run pytest tests/test_ollama_extractor.py -q`. Expected: FAIL.
 - [ ] **Step 3: Implement**, and wire the `ollama` branch in `build_extractor`.
 - [ ] **Step 4: Run** the same command. Expected: PASS. Optionally run `uv run pytest -m live tests/test_ollama_extractor.py` with Ollama running and record the chosen default model in the README.
@@ -486,7 +493,7 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
   - `group_into_passages(boxes, line_gap_px) -> list[list[box]]`: vertically adjacent boxes (gap < 1.5× median box height) form one passage
   - `TesseractExtractor(hsv_low, hsv_high, lang="eng")` with `name="tesseract"`:
     - `health()`: `shutil.which("tesseract")`
-    - `extract()`: OCR each region with `--psm 6` and join a passage's lines with spaces; OCR the top and bottom 8% strips with `--psm 7` and take the first standalone 1–4 digit number as `page`; `note=None`, `chapter=None`
+    - `extract(image_path, rotation=0)`: work on `load_upright(image_path, rotation)`; OCR each region with `--psm 6` and join a passage's lines with spaces; OCR the top and bottom 8% strips with `--psm 7` and take the first standalone 1–4 digit number as `page`; `note=None`, `chapter=None`
 
 - [ ] **Step 1: Write failing tests:**
   - `test_find_regions_on_synthetic_image`: one yellow box → one region overlapping the drawn rectangle
@@ -545,9 +552,9 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
 - Routes: exactly the spec §7 table, plus `POST /repo/connect` (runs `check_remote()` then `clone()`; a `GitError` becomes 400 with stderr). Response details:
   - `GET /batches` → `[{id, default_book_slug, created_at, updated_at, expires_at, expiring_soon, warned_at, counts: {<status>: n}}]`
   - `POST /batches/{id}/captures`: multipart `files` → `{created: [Capture], rejected: [{filename, reason}]}`, enqueueing each created capture. JSON body with `source:"kindle"` → `Capture`.
-  - `PATCH /captures/{id}` body `{highlights?, book_slug?, page?, chapter?, captured_at?, status?}`. Allowed status transitions follow the spec §6 state machine. Approving requires ≥1 highlight with non-empty stripped text AND a resolvable book (capture or batch default, repo or pending); otherwise 422 with code `not_approvable`. Any PATCH touches `updated_at`.
+  - `PATCH /captures/{id}` body `{highlights?, book_slug?, page?, chapter?, captured_at?, rotation?, status?}` (`rotation` must be 0/90/180/270, otherwise 422). Allowed status transitions follow the spec §6 state machine. Approving requires ≥1 highlight with non-empty stripped text AND a resolvable book (capture or batch default, repo or pending); otherwise 422 with code `not_approvable`. Any PATCH touches `updated_at`.
   - `POST /captures/{id}/retry` `{extractor?}` → status `pending`, re-enqueued.
-  - `GET /captures/{id}/image` → `FileResponse` of the upright image (re-encoded JPEG when EXIF rotation ≠ 1).
+  - `GET /captures/{id}/image` → the upright image (`load_upright(path, capture.rotation)` re-encoded as JPEG).
   - `GET /batches/{id}/events` → `EventSourceResponse` from `EventBus.subscribe`.
   - `POST /batches/{id}/push` → `PushResult`. `PushError` codes map to: `dirty_repo` 409, `not_cloned` 409, `nothing_to_push` 400, `git_failed` 502.
   - `GET /health` → `{extractor: {kind, ok, detail}, repo: {cloned, dirty, path}, remote: {ok, detail}}`
@@ -562,6 +569,7 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
   - `test_kindle_capture_starts_ready`
   - `test_approve_requires_text_and_book`: empty highlights → 422 `not_approvable`, and no book → 422
   - `test_patch_touches_updated_at`
+  - `test_patch_rotation_validates_and_image_endpoint_serves_rotated`: rotation 45 → 422; rotation 90 swaps the served image's width/height
   - `test_books_create_pending_then_listed_with_flag`
   - `test_repo_connect_then_health_reports_cloned`
   - `test_full_flow_push_deletes_batch`: connect repo, create book, upload, approve, push → 200; then `GET /batches/{id}` → 404 and the remote has `books/permutation-city.md`
@@ -668,6 +676,7 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
   - right, shared capture fields: Page (number), Chapter, Captured (`datetime-local`)
   - right, then one `<HighlightBlock>` per highlight (Highlight textarea + My note textarea + remove), plus "+ Add highlight"
   - footer: ◀ `k of N` ▶ (over non-pushed captures), Discard, Approve / Unapprove, Retry (only when `failed`, with an extractor choice)
+  - above the photo: a **Rotate ↻** button that patches `rotation` by +90 (mod 360), refreshes the photo, and then offers "Re-run extraction" (`retryCapture`)
 - Autosave: debounce field edits by 600ms → `patchCapture`. Flush pending edits before navigating or approving.
 - Approve: on a 422 `not_approvable`, show "Add highlight text and choose a book before approving."
 - Keyboard: ←/→ navigate (when focus isn't in a text field), ⌘↵ approves and moves to the next capture.
@@ -678,6 +687,7 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
   - `approve flushes pending edits before patching status`
   - `shows not_approvable message on 422`
   - `retry visible only for failed captures`
+  - `test_rotate_button_patches_rotation_and_offers_retry`: clicking ↻ on a capture with rotation 270 patches `rotation: 0` and shows "Re-run extraction"
   - `next/prev navigation skips pushed captures`
 - [ ] **Step 2: Run** `npx vitest run tests/ReviewEditor.test.tsx`. Expected: FAIL.
 - [ ] **Step 3: Implement.**
@@ -712,7 +722,7 @@ def test_append_preserves_user_edits(tmp_path): ...  # pre-existing hand-written
 ### Task 16: End-to-end smoke test and README
 
 **Files:**
-- Create: `frontend/e2e/smoke.spec.ts`, `frontend/playwright.config.ts`, `backend/tests/fixtures/README.md` (tells the user to add real highlighted-page photos, e.g. Permutation City p.163)
+- Create: `frontend/e2e/smoke.spec.ts`, `frontend/playwright.config.ts`, (`backend/tests/fixtures/README.md` and `sample-p163.jpg` already exist and are committed with this plan; do not re-create)
 - Modify: `README.md`
 - Test: `frontend/e2e/smoke.spec.ts`
 
