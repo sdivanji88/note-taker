@@ -36,3 +36,12 @@ button.link { border: 0; background: none; color: #0a58ca; text-decoration: unde
 .dialog { background: #fff; padding: 20px; border-radius: 10px; max-width: 420px; }
 .book-select { display: flex; flex-direction: column; gap: 4px; }
 .new-book { display: flex; flex-direction: column; gap: 6px; }
+.review-pane { outline: none; }
+.review-body { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(300px, 1fr); gap: 16px; margin: 12px 0; }
+.review-photo img { max-width: 100%; max-height: 70vh; display: block; margin-top: 8px; border: 1px solid #e0e0e3; }
+.kindle-panel { padding: 16px; background: #fff; border: 1px solid #e0e0e3; border-radius: 8px; }
+.review-fields { display: flex; flex-direction: column; gap: 8px; }
+.review-fields label, .highlight-block label { display: flex; flex-direction: column; gap: 2px; }
+.review-fields textarea, .review-fields input { font: inherit; padding: 4px 6px; }
+.highlight-block { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #fff; border: 1px solid #e0e0e3; border-radius: 8px; }
+.review-footer { position: sticky; bottom: 0; padding: 10px 0; background: #fafafa; border-top: 1px solid #e0e0e3; }

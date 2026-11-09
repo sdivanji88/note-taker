@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import BatchGrid from './screens/BatchGrid'
 import BatchList from './screens/BatchList'
+import ReviewEditor from './screens/ReviewEditor'
 
 export type Route =
   | { screen: 'list' }
@@ -8,7 +9,7 @@ export type Route =
   | { screen: 'review'; batchId: string; index: number }
   | { screen: 'settings' }
 
-// Tasks 14 and 15 replace these.
+// Task 15 replaces this.
 function Placeholder({ text, onBack }: { text: string; onBack: () => void }) {
   return (
     <main className="screen">
@@ -40,8 +41,9 @@ export default function App() {
       )
     case 'review':
       return (
-        <Placeholder
-          text="Review screen — Task 14"
+        <ReviewEditor
+          batchId={route.batchId}
+          index={route.index}
           onBack={() => setRoute({ screen: 'grid', batchId: route.batchId })}
         />
       )

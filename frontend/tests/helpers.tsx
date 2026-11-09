@@ -83,6 +83,9 @@ export function fakeClient(overrides: Record<string, unknown> = {}) {
     uploadPhotos: vi.fn().mockResolvedValue({ created: [], rejected: [] }),
     addKindle: vi.fn(),
     deleteCapture: vi.fn().mockResolvedValue(undefined),
+    patchCapture: vi.fn(),
+    retryCapture: vi.fn(),
+    getSettings: vi.fn().mockResolvedValue({ extractor: { kind: 'tesseract' } }),
     push: vi.fn(),
     imageUrl: vi.fn((id: string) => `http://127.0.0.1:1/captures/${id}/image?token=t`),
     subscribe: vi.fn((_id: string, cb: (e: BatchEvent) => void) => {

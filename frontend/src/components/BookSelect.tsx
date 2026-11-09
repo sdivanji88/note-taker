@@ -9,11 +9,13 @@ interface Props {
   allowCreate?: boolean
   disabled?: boolean
   label?: string
+  // Text of the empty option; the review editor uses it to show the batch default.
+  noneLabel?: string
 }
 
 const NEW = '__new__'
 
-export default function BookSelect({ value, onChange, allowCreate = false, disabled = false, label = 'Book' }: Props) {
+export default function BookSelect({ value, onChange, allowCreate = false, disabled = false, label = 'Book', noneLabel = '(none)' }: Props) {
   const api = useApi()
   const id = useId()
   const [books, setBooks] = useState<Book[]>([])
@@ -59,7 +61,7 @@ export default function BookSelect({ value, onChange, allowCreate = false, disab
         disabled={disabled}
         onChange={(e) => (e.target.value === NEW ? setCreating(true) : onChange(e.target.value || null))}
       >
-        <option value="">(none)</option>
+        <option value="">{noneLabel}</option>
         {books.map((b) => (
           <option key={b.slug} value={b.slug}>
             {b.title}
