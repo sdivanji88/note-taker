@@ -1,0 +1,65 @@
+frontend/electron/preload/index.ts
+  s_3e829881b83b35::t_33d708bed288c4 1-7
+frontend/tsconfig.node.json
+  s_3e829881b83b35::t_a5111140375891 12
+  s_3e829881b83b35::t_02c2cacfcb4b83 1-2,13
+  s_3e829881b83b35::t_a88ddbdbb65261 3-11
+frontend/src/main.tsx
+  s_3e829881b83b35::t_33d708bed288c4 1-9
+frontend/src/env.d.ts
+  s_3e829881b83b35::t_33d708bed288c4 1-6
+frontend/src/App.tsx
+  s_3e829881b83b35::t_33d708bed288c4 1-4
+frontend/electron/main/index.ts
+  s_3e829881b83b35::t_33d708bed288c4 1-80
+frontend/tsconfig.json
+  s_3e829881b83b35::t_02c2cacfcb4b83 1-4
+frontend/src/api/types.ts
+  s_3e829881b83b35::t_563ce7b7ecdff3 1-182
+frontend/tests/backend.test.ts
+  s_3e829881b83b35::t_d95db3f4e010a6 85
+  s_3e829881b83b35::t_78f0c988280cda 87,95,99,107,111,123,132,140
+  s_3e829881b83b35::t_cf75bd96110490 115
+  s_3e829881b83b35::t_4c4a513b773a88 1-84,86,88-94,96-98,100-106,108-110,112-114,116-122,124-131,133-139,141-146
+frontend/electron/main/backend.ts
+  s_3e829881b83b35::t_94819620d5f9d0 1-137
+frontend/electron.vite.config.ts
+  s_3e829881b83b35::t_a88ddbdbb65261 1,19-24,26-28
+  s_3e829881b83b35::t_02c2cacfcb4b83 2-4,18,25,32-33
+  s_3e829881b83b35::t_33d708bed288c4 5-17,29-31
+frontend/tsconfig.web.json
+  s_3e829881b83b35::t_a88ddbdbb65261 3-6,8-13
+  s_3e829881b83b35::t_02c2cacfcb4b83 1-2,7,14
+.gitignore
+  s_3e829881b83b35::t_1831a7425947f0 237-244
+frontend/package.json
+  s_3e829881b83b35::t_02c2cacfcb4b83 1,6-7,11-13,15-16,22-23,26,35-36
+  s_3e829881b83b35::t_7105e67801706d 8
+  s_3e829881b83b35::t_a88ddbdbb65261 2-5,9-10,14,17-21,24-25,27-34
+frontend/index.html
+  s_3e829881b83b35::t_33d708bed288c4 1-18
+frontend/tests/client.test.ts
+  s_3e829881b83b35::t_563ce7b7ecdff3 1-137
+frontend/src/api/client.ts
+  s_3e829881b83b35::t_e1becffc7f074d 1-125
+frontend/package-lock.json
+  s_3e829881b83b35::t_8292548fb696ab 1-2949
+frontend/vitest.config.mts
+  s_3e829881b83b35::t_eb546c40c571ba 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "45c48fd66487fcba0ad6b38065f2e2241e5e6ed9",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
