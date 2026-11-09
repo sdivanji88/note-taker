@@ -1,0 +1,38 @@
+frontend/src/format.ts
+  s_3e829881b83b35::t_c02573a1cfed31 14-20
+frontend/tests/Settings.test.tsx
+  s_3e829881b83b35::t_c374c6788f434e 1-44,46-57,61-159,161-169,171-265
+  s_3e829881b83b35::t_8183083dd693e9 45,160,170
+  s_3e829881b83b35::t_1b2003377291af 58-60
+frontend/src/screens/settingsForm.ts
+  s_3e829881b83b35::t_c02573a1cfed31 1-87
+frontend/src/styles.css
+  s_3e829881b83b35::t_c02573a1cfed31 48-56
+frontend/src/screens/Settings.tsx
+  s_3e829881b83b35::t_c374c6788f434e 9-11,220,233
+  s_3e829881b83b35::t_771fdf1d7ca5d9 196
+  s_3e829881b83b35::t_c02573a1cfed31 1-8,12-195,197-219,221-232
+frontend/src/App.tsx
+  s_3e829881b83b35::t_c02573a1cfed31 5,42
+frontend/tests/App.test.tsx
+  s_3e829881b83b35::t_771fdf1d7ca5d9 12-22
+  s_3e829881b83b35::t_c02573a1cfed31 29
+frontend/src/components/HealthPanel.tsx
+  s_3e829881b83b35::t_c02573a1cfed31 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "2e7744411c1d981b3ac52ff9b091867ba23576db",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
