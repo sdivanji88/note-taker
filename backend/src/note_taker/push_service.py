@@ -159,6 +159,24 @@ class PushService:
                 landed = self._landed_captures(git, batch, books_dir) if fetched else set()
                 self._reopen_with_pushed(batch.id, landed)
 
+    def sync(self) -> None:
+        """Best-effort pull so the book picker sees books pushed from elsewhere.
+
+        Never raises and never waits: if a push holds the clone, or the clone is
+        missing or dirty, the local copy is good enough for a listing.
+        """
+        if not _PUSH_LOCK.acquire(blocking=False):
+            return
+        try:
+            git = self._git_factory()
+            if not git.is_cloned() or git.is_dirty(self._settings().notes_repo.books_dir):
+                return
+            git.pull_rebase()
+        except GitError as exc:
+            log.info("repo sync skipped: %s", _detail(exc))
+        finally:
+            _PUSH_LOCK.release()
+
     def _check_repo(self, git: GitPublisher, books_dir: str) -> None:
         if not git.is_cloned():
             raise PushError("not_cloned", f"notes repo is not cloned at {git.repo_dir}")
