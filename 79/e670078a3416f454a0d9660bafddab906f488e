@@ -1,0 +1,74 @@
+backend/src/note_taker/redact.py
+  s_3e829881b83b35::t_76cd3962a95b6a 1-28
+backend/src/note_taker/__main__.py
+  s_3e829881b83b35::t_28bbc14148fa48 1-35
+backend/pyproject.toml
+  s_3e829881b83b35::t_06e54b1d606328 17,31
+backend/tests/test_api.py
+  s_3e829881b83b35::t_a0fcd7832694d9 716
+  s_3e829881b83b35::t_a20045a883a443 233-324,327-402
+  s_3e829881b83b35::t_73b27a8018dbd6 755-880,884-889
+  s_3e829881b83b35::t_09f07fe238c92c 226
+  s_3e829881b83b35::t_2e09415c843172 476-478,483-493,495-504
+  s_3e829881b83b35::t_4788cf18bfb89f 1-14,21-42,44-225,227-232
+  s_3e829881b83b35::t_1e7c4a2cca3cfd 15-20,43
+  s_3e829881b83b35::t_a9d56a803331d3 881
+  s_3e829881b83b35::t_c8f16139ebcfc7 1014-1139
+  s_3e829881b83b35::t_8377474dd9039b 882-883
+  s_3e829881b83b35::t_f7fd987594451d 403-475,479-482,494,505-715,717-754
+  s_3e829881b83b35::t_1c228f2bb64ec1 890-1013
+  s_3e829881b83b35::t_6bf1ec09b20500 325-326
+backend/src/note_taker/api/deps.py
+  s_3e829881b83b35::t_68afadb6e4846e 1-74
+backend/src/note_taker/api/routes_batches.py
+  s_3e829881b83b35::t_fb8bd986c0f2fa 5,16
+  s_3e829881b83b35::t_c759e970471a38 3,7,9,11,13-15,17,22-96,99,101-102
+  s_3e829881b83b35::t_63dbf9f445faaf 10,98,100
+  s_3e829881b83b35::t_5198ee93e3914a 1-2,4,6,8,18-21,103-115,119-132
+  s_3e829881b83b35::t_34b1c067a011e3 12,97
+  s_3e829881b83b35::t_a9d56a803331d3 116-118
+backend/src/note_taker/api/errors.py
+  s_3e829881b83b35::t_ba595c4923efea 1-85
+backend/src/note_taker/api/routes_system.py
+  s_3e829881b83b35::t_3c48ce61e83d1e 1-76
+backend/src/note_taker/api/routes_settings.py
+  s_3e829881b83b35::t_37c07cc9650096 1-88
+backend/src/note_taker/api/app.py
+  s_3e829881b83b35::t_ba595c4923efea 9,20-23,28,32,155
+  s_3e829881b83b35::t_caaba03fb0a849 1-8,10-11,19,24-27,29-31,33-54,57-154,156-158,162-169
+  s_3e829881b83b35::t_1e7c4a2cca3cfd 12-18
+  s_3e829881b83b35::t_b87457407cd442 55-56
+  s_3e829881b83b35::t_17c1c592c0cc20 159-161
+backend/src/note_taker/push_service.py
+  s_3e829881b83b35::t_06e54b1d606328 162-179
+backend/src/note_taker/api/auth.py
+  s_3e829881b83b35::t_767507e2ee8ffa 1-50
+backend/src/note_taker/api/routes_books.py
+  s_3e829881b83b35::t_fb8bd986c0f2fa 1,3,7
+  s_3e829881b83b35::t_993df872f56f27 2,4-6,8-26
+backend/src/note_taker/api/routes_captures.py
+  s_3e829881b83b35::t_fb8bd986c0f2fa 4,25
+  s_3e829881b83b35::t_63dbf9f445faaf 237-238
+  s_3e829881b83b35::t_1e7c4a2cca3cfd 14-21
+  s_3e829881b83b35::t_4a26f73e3abae2 1-3,5-13,22-24,26-236,239-311
+backend/src/note_taker/api/uploads.py
+  s_3e829881b83b35::t_34c5ea2f40bd06 1-114
+backend/uv.lock
+  s_3e829881b83b35::t_8b341cdbe08eef 114-126,142-167,197,207,220,230,607-615,709-717
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "79e670078a3416f454a0d9660bafddab906f488e",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
