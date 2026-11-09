@@ -9,6 +9,7 @@ class FakeChild extends EventEmitter {
   exitCode: number | null = null
   signalCode: string | null = null
   signals: string[] = []
+  pid = 4242
   // dies: the signal that ends the process (undefined = ignores every signal).
   constructor(private dies?: string) {
     super()
@@ -28,9 +29,16 @@ class FakeChild extends EventEmitter {
 const opts = { backendDir: '/b', dataDir: '/d' }
 const ok = () => new Response('{}', { status: 200 })
 
-function setup(child: FakeChild, fetchImpl: unknown, extra = {}) {
+// The backend lives in its own process group (uv forwards SIGTERM but cannot forward
+// SIGKILL), so tests observe signals sent to the group: kill(-pid, sig).
+function setup(child: FakeChild, fetchImpl: unknown, extra: Record<string, unknown> = {}) {
   const spawn = vi.fn(() => child)
+  const kill = vi.fn((pid: number, signal: string) => {
+    if (pid !== -child.pid) throw new Error(`signalled ${pid}, expected the group -${child.pid}`)
+    child.kill(signal)
+  })
   const deps = {
+    kill: kill as never,
     spawn: spawn as never,
     fetch: fetchImpl as typeof fetch,
     pollMs: 5,
@@ -38,7 +46,7 @@ function setup(child: FakeChild, fetchImpl: unknown, extra = {}) {
     killGraceMs: 20,
     ...extra
   }
-  return { spawn, deps }
+  return { spawn, kill, deps }
 }
 
 describe('pickFreePort', () => {
@@ -142,5 +150,51 @@ describe('startBackend', () => {
     child.die(0)
     await b.stop()
     expect(child.signals).toEqual([])
+  })
+})
+
+describe('process group handling', () => {
+  it('spawns detached with an open stdin pipe and the exit-on-stdin-eof flag', async () => {
+    const { spawn, deps } = setup(new FakeChild(), vi.fn().mockResolvedValue(ok()))
+    await startBackend(opts, deps)
+    const [, args, o] = spawn.mock.calls[0] as unknown as [string, string[], { detached: boolean; stdio: unknown[] }]
+    expect(o.detached).toBe(true)
+    expect(o.stdio[0]).toBe('pipe')
+    expect(args).toContain('--exit-on-stdin-eof')
+  })
+
+  it('stop() signals the process group for TERM and for the KILL escalation', async () => {
+    const child = new FakeChild('SIGKILL')
+    const { kill, deps } = setup(child, vi.fn().mockResolvedValue(ok()))
+    const b = await startBackend(opts, deps)
+    await b.stop()
+    expect(kill.mock.calls).toEqual([
+      [-4242, 'SIGTERM'],
+      [-4242, 'SIGKILL']
+    ])
+  })
+
+  it('treats ESRCH (group already gone) as success', async () => {
+    const child = new FakeChild()
+    const { deps } = setup(child, vi.fn().mockResolvedValue(ok()), {
+      kill: () => {
+        child.die(0)
+        throw Object.assign(new Error('no such process'), { code: 'ESRCH' })
+      }
+    })
+    const b = await startBackend(opts, deps)
+    await expect(b.stop()).resolves.toBeUndefined()
+  })
+
+  it('the synchronous process-exit hook also signals the group', async () => {
+    const once = vi.spyOn(process, 'once')
+    const child = new FakeChild()
+    const { kill, deps } = setup(child, vi.fn().mockResolvedValue(ok()))
+    await startBackend(opts, deps)
+    const hook = once.mock.calls.find(([ev]) => ev === 'exit')![1] as () => void
+    once.mockRestore()
+    hook()
+    expect(kill).toHaveBeenCalledWith(-4242, 'SIGTERM')
+    child.die(0) // lets the listener clean itself up
   })
 })

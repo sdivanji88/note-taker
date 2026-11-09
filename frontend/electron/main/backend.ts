@@ -17,6 +17,7 @@ export interface RunningBackend {
 export interface BackendDeps {
   spawn?: typeof nodeSpawn
   fetch?: typeof fetch
+  kill?: (pid: number, signal: NodeJS.Signals) => void
   pollMs?: number
   timeoutMs?: number
   killGraceMs?: number
@@ -47,6 +48,7 @@ export async function startBackend(
 ): Promise<RunningBackend> {
   const spawn = deps.spawn ?? nodeSpawn
   const doFetch = deps.fetch ?? fetch
+  const kill = deps.kill ?? process.kill
   const pollMs = deps.pollMs ?? 250
   const timeoutMs = deps.timeoutMs ?? 20_000
   const killGraceMs = deps.killGraceMs ?? 3_000
@@ -58,9 +60,27 @@ export async function startBackend(
   // The token travels in the child's environment only: argv is world-readable via `ps`.
   const child: ChildProcess = spawn(
     'uv',
-    ['run', '--project', opts.backendDir, 'python', '-m', 'note_taker', '--port', String(port), '--data-dir', opts.dataDir],
-    { env: { ...process.env, NOTE_TAKER_TOKEN: token }, stdio: ['ignore', 'ignore', 'pipe'] }
+    ['run', '--project', opts.backendDir, 'python', '-m', 'note_taker', '--port', String(port), '--data-dir', opts.dataDir, '--exit-on-stdin-eof'],
+    {
+      env: { ...process.env, NOTE_TAKER_TOKEN: token },
+      // stdin stays open for the child's lifetime and is never closed by us: when this
+      // process dies (even kill -9) the OS closes it and the backend sees EOF and exits.
+      stdio: ['pipe', 'ignore', 'pipe'],
+      // Own process group, so signals reach python behind `uv run`. Not unref'd: we
+      // still wait for the exit event.
+      detached: true
+    }
   )
+
+  // uv forwards SIGTERM but cannot forward SIGKILL, so signal the whole group (-pid).
+  // ESRCH means the group is already gone, which is what we wanted.
+  const signalGroup = (signal: NodeJS.Signals): void => {
+    try {
+      kill(-(child.pid as number), signal)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ESRCH') throw err
+    }
+  }
 
   let stderr = ''
   child.stderr?.on('data', (chunk: Buffer) => {
@@ -78,7 +98,7 @@ export async function startBackend(
 
   // Last resort if Electron dies without before-quit: only synchronous work runs here.
   function killOnProcessExit(): void {
-    if (!exited) child.kill('SIGTERM')
+    if (!exited) signalGroup('SIGTERM')
   }
   process.once('exit', killOnProcessExit)
 
@@ -86,11 +106,11 @@ export async function startBackend(
   const stop = (): Promise<void> => {
     stopping ??= (async () => {
       if (exited) return
-      child.kill('SIGTERM')
+      signalGroup('SIGTERM')
       let timer: NodeJS.Timeout | undefined
       const forced = new Promise<void>((resolve) => {
         timer = setTimeout(() => {
-          if (!exited) child.kill('SIGKILL')
+          if (!exited) signalGroup('SIGKILL')
           resolve()
         }, killGraceMs)
       })
