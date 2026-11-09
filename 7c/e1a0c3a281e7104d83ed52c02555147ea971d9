@@ -1,0 +1,22 @@
+frontend/tests/backend.test.ts
+  s_3e829881b83b35::t_ae89aa8a60c5d5 12,32-34,36-39,41,49,155-199
+  s_3e829881b83b35::t_b56e12f2620f56 200
+frontend/electron/main/backend.ts
+  s_3e829881b83b35::t_3721d2b528f06a 20,51,63-72,75-84,101,109,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "7ce1a0c3a281e7104d83ed52c02555147ea971d9",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
