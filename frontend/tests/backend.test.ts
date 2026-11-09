@@ -198,3 +198,53 @@ describe('process group handling', () => {
     child.die(0) // lets the listener clean itself up
   })
 })
+
+describe('spawn failure', () => {
+  const never = () => vi.fn().mockRejectedValue(new Error('refused'))
+  const failSpawn = async (code: string, message: string) => {
+    const child = new FakeChild()
+    child.pid = undefined as never // spawn failed: no process was created
+    const { spawn, kill, deps } = setup(child, never(), { timeoutMs: 60_000 })
+    const p = startBackend(opts, deps)
+    const rejected = p.catch((e: Error) => e)
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalled())
+    child.emit('error', Object.assign(new Error(message), { code }))
+    return { err: (await rejected) as Error, kill }
+  }
+
+  it('rejects at once with a uv hint when uv is not installed (ENOENT)', async () => {
+    const started = Date.now()
+    const { err } = await failSpawn('ENOENT', 'spawn uv ENOENT')
+    expect(err.message).toBe(
+      'could not start the backend (is uv installed? https://docs.astral.sh/uv/): spawn uv ENOENT'
+    )
+    expect(Date.now() - started).toBeLessThan(2_000) // not the 60 s startup timeout
+  })
+
+  it('rejects with the generic message for other spawn errors, never with the token', async () => {
+    const { err } = await failSpawn('EACCES', 'spawn uv EACCES')
+    expect(err.message).toBe('could not start the backend: spawn uv EACCES')
+    expect(err.message).not.toMatch(/[0-9a-f]{64}/)
+  })
+
+  it('stop() after a failed spawn is a no-op: no signal, no throw, idempotent', async () => {
+    const child = new FakeChild()
+    child.pid = undefined as never
+    const { spawn, kill, deps } = setup(child, never(), { timeoutMs: 60_000 })
+    const p = startBackend(opts, deps)
+    const rejected = p.catch(() => undefined)
+    await vi.waitFor(() => expect(spawn).toHaveBeenCalled())
+    child.emit('error', Object.assign(new Error('spawn uv ENOENT'), { code: 'ENOENT' }))
+    await rejected
+    expect(kill).not.toHaveBeenCalled()
+  })
+
+  it('ignores an error event after a successful start instead of crashing', async () => {
+    const child = new FakeChild('SIGTERM')
+    const { deps } = setup(child, vi.fn().mockResolvedValue(ok()))
+    const b = await startBackend(opts, deps)
+    expect(() => child.emit('error', new Error('send failed'))).not.toThrow()
+    await b.stop() // still stoppable
+    expect(child.signals).toEqual(['SIGTERM'])
+  })
+})

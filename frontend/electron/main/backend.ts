@@ -75,8 +75,10 @@ export async function startBackend(
   // uv forwards SIGTERM but cannot forward SIGKILL, so signal the whole group (-pid).
   // ESRCH means the group is already gone, which is what we wanted.
   const signalGroup = (signal: NodeJS.Signals): void => {
+    // No pid means spawn itself failed, so there is nothing to signal.
+    if (child.pid === undefined) return
     try {
-      kill(-(child.pid as number), signal)
+      kill(-child.pid, signal)
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ESRCH') throw err
     }
@@ -89,11 +91,12 @@ export async function startBackend(
 
   let exited = child.exitCode !== null || child.signalCode !== null
   const exitWaiters: Array<() => void> = []
-  child.once('exit', () => {
+  function markGone(): void {
     exited = true
     process.removeListener('exit', killOnProcessExit)
     exitWaiters.splice(0).forEach((w) => w())
-  })
+  }
+  child.once('exit', markGone)
   const waitForExit = () => new Promise<void>((resolve) => (exited ? resolve() : exitWaiters.push(resolve)))
 
   // Last resort if Electron dies without before-quit: only synchronous work runs here.
@@ -127,11 +130,24 @@ export async function startBackend(
       reject(new Error(`backend exited with code ${code ?? signal} during startup:\n${stderr}`))
     })
   })
+  // A spawn failure (uv missing, not executable) emits 'error' and never 'exit'; without
+  // a listener it would crash the main process, and without rejecting here startup would
+  // sit out the full timeout. After a successful start the rejection is simply unused:
+  // an 'error' then (e.g. a failed signal) is ignored, and a dead backend is handled by
+  // the 'exit' path / the API's network errors.
+  const spawnFailed = new Promise<never>((_, reject) => {
+    child.on('error', (err: NodeJS.ErrnoException) => {
+      if (child.pid === undefined) markGone() // never started: nothing to wait for or signal
+      const hint = err.code === 'ENOENT' ? ' (is uv installed? https://docs.astral.sh/uv/)' : ''
+      reject(new Error(`could not start the backend${hint}: ${err.message}`))
+    })
+  })
+  spawnFailed.catch(() => {})
   earlyExit.catch(() => {}) // handled via the race below; avoid an unhandled rejection after success
 
   const healthy = (async () => {
     const deadline = Date.now() + timeoutMs
-    while (Date.now() < deadline) {
+    while (Date.now() < deadline && !exited) {
       try {
         const res = await doFetch(`${baseUrl}/health`, {
           headers: { 'X-Session-Token': token },
@@ -143,12 +159,13 @@ export async function startBackend(
       }
       await sleep(pollMs)
     }
+    // Reached on timeout, or because the child is gone (its own rejection wins the race).
     throw new Error(`backend did not become healthy within ${timeoutMs / 1000}s:\n${stderr}`)
   })()
   healthy.catch(() => {})
 
   try {
-    await Promise.race([healthy, earlyExit])
+    await Promise.race([healthy, earlyExit, spawnFailed])
   } catch (err) {
     await stop()
     throw err
