@@ -9,13 +9,24 @@ describe('App routing', () => {
     const { client } = fakeClient({
       listBatches: vi.fn().mockResolvedValue([summary('b1')]),
       getBatch: vi.fn().mockResolvedValue(batch([{ ...batch().captures[0] }].slice(1))),
+      getSettings: vi.fn().mockResolvedValue({
+        notes_repo: { remote_url: '', branch: 'main', local_path: null, books_dir: 'books' },
+        extractor: {
+          kind: 'tesseract',
+          ollama: { base_url: 'http://localhost:11434', model: '' },
+          tesseract: { hsv_low: [0, 0, 0], hsv_high: [0, 0, 0], lang: 'eng' },
+          concurrency: 1,
+          timeout_s: 180
+        },
+        batches: { expiry_days: 30, warn_days_before: 7 }
+      })
     })
     renderWith(client, <App />)
     fireEvent.click(await screen.findByRole('button', { name: /resume/i }))
     await screen.findByRole('button', { name: /add kindle highlight/i })
     fireEvent.click(screen.getByRole('button', { name: /← batches/i }))
     fireEvent.click(await screen.findByRole('button', { name: /^settings$/i }))
-    expect(screen.getByText('Settings screen — Task 15')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /settings/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     await screen.findByRole('button', { name: /new batch/i })
   })

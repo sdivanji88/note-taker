@@ -45,3 +45,12 @@ button.link { border: 0; background: none; color: #0a58ca; text-decoration: unde
 .review-fields textarea, .review-fields input { font: inherit; padding: 4px 6px; }
 .highlight-block { display: flex; flex-direction: column; gap: 6px; padding: 10px; background: #fff; border: 1px solid #e0e0e3; border-radius: 8px; }
 .review-footer { position: sticky; bottom: 0; padding: 10px 0; background: #fafafa; border-top: 1px solid #e0e0e3; }
+.settings fieldset { margin: 12px 0; padding: 10px 14px; border: 1px solid #e0e0e3; border-radius: 8px; background: #fff; }
+.field { display: flex; flex-direction: column; gap: 2px; margin: 8px 0; max-width: 520px; }
+.field input { font: inherit; padding: 4px 6px; }
+.radios { border: 0; padding: 0; }
+.radios label { display: block; }
+.stderr { white-space: pre-wrap; word-break: break-word; margin: 6px 0; padding: 8px; background: #fbeaea; border-radius: 6px; }
+.health { padding-left: 18px; }
+.status-bad { color: #b3261e; }
+.status-ok { color: #1e7a34; }

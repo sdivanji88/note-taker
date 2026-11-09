@@ -2,22 +2,13 @@ import { useState } from 'react'
 import BatchGrid from './screens/BatchGrid'
 import BatchList from './screens/BatchList'
 import ReviewEditor from './screens/ReviewEditor'
+import Settings from './screens/Settings'
 
 export type Route =
   | { screen: 'list' }
   | { screen: 'grid'; batchId: string }
   | { screen: 'review'; batchId: string; index: number }
   | { screen: 'settings' }
-
-// Task 15 replaces this.
-function Placeholder({ text, onBack }: { text: string; onBack: () => void }) {
-  return (
-    <main className="screen">
-      <button onClick={onBack}>← Back</button>
-      <p>{text}</p>
-    </main>
-  )
-}
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ screen: 'list' })
@@ -48,6 +39,6 @@ export default function App() {
         />
       )
     case 'settings':
-      return <Placeholder text="Settings screen — Task 15" onBack={toList} />
+      return <Settings onBack={toList} />
   }
 }
