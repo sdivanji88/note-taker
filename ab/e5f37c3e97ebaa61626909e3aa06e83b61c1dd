@@ -1,0 +1,42 @@
+frontend/src/screens/BatchList.tsx
+  s_3e829881b83b35::t_d37e046db9cbd8 19-20,24-39,41,90
+  s_3e829881b83b35::t_a24ee651381b7c 89,91
+  s_3e829881b83b35::t_87d5f980a81664 92
+frontend/src/Root.tsx
+  s_3e829881b83b35::t_d37e046db9cbd8 27-28
+frontend/tests/client.test.ts
+  s_3e829881b83b35::t_c2852107a5d94e 40-47
+frontend/src/api/client.ts
+  s_3e829881b83b35::t_d37e046db9cbd8 79-80
+frontend/electron/main/backend.ts
+  s_3e829881b83b35::t_d37e046db9cbd8 127,152-154
+frontend/tests/backend.test.ts
+  s_3e829881b83b35::t_c2852107a5d94e 64,87,91
+frontend/tests/helpers.tsx
+  s_3e829881b83b35::t_c2852107a5d94e 71
+backend/tests/test_api_settings_system.py
+  s_3e829881b83b35::t_0ad820fa4029b4 142-151
+frontend/tests/App.test.tsx
+  s_3e829881b83b35::t_c2852107a5d94e 41-42,54-61
+  s_3e829881b83b35::t_40784d2655ce38 62
+frontend/tests/BatchList.test.tsx
+  s_3e829881b83b35::t_c2852107a5d94e 114-136
+backend/src/note_taker/api/routes_system.py
+  s_3e829881b83b35::t_c2ccc88701f2bb 54-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "abe5f37c3e97ebaa61626909e3aa06e83b61c1dd",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
