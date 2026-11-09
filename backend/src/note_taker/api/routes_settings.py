@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from pathlib import PurePosixPath, PureWindowsPath
 from urllib.parse import urlparse
@@ -17,6 +18,10 @@ router = APIRouter()
 # as an option. The branch is passed to git as an argument and into a refspec.
 _BAD_BRANCH = re.compile(r"[\s\x00-\x1f\x7f~^:?*\[\\]|\.\.")
 
+# Glob/drive characters and backslashes in books_dir: git would read them as pathspec
+# magic or a different path than the one the app writes.
+_BAD_BOOKS_DIR = re.compile(r"[:*?\[\\]")
+
 
 def _validate(s: Settings) -> list[str]:
     problems = []
@@ -31,8 +36,18 @@ def _validate(s: Settings) -> list[str]:
         or PurePosixPath(books_dir).is_absolute()
         or PureWindowsPath(books_dir).is_absolute()
         or ".." in PurePosixPath(books_dir.replace("\\", "/")).parts
+        or _BAD_BOOKS_DIR.search(books_dir)
+        # Case-insensitive: macOS filesystems are, so ".GIT" is the .git directory.
+        or any(part.lower() == ".git" for part in PurePosixPath(books_dir).parts)
     ):
         problems.append("notes_repo.books_dir must be a relative path inside the repo")
+
+    if repo.local_path is not None:
+        # Expanded here and stored expanded: nothing downstream expands "~", and a
+        # relative path would depend on the backend's working directory.
+        repo.local_path = os.path.expanduser(repo.local_path)
+        if not os.path.isabs(repo.local_path):
+            problems.append("notes_repo.local_path must be an absolute path (or empty)")
 
     if not repo.branch or repo.branch.startswith("-") or _BAD_BRANCH.search(repo.branch):
         problems.append("notes_repo.branch is not a valid branch name")

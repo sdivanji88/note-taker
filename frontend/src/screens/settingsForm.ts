@@ -38,11 +38,12 @@ export function toForm(s: Settings): Form {
 // copy so saving cannot silently reset them.
 export function toSettings(f: Form, server: Settings): Settings {
   return {
+    // Trimmed because pasted values often carry stray spaces (the backend strips too).
     notes_repo: {
-      remote_url: f.remote_url,
-      branch: f.branch,
-      local_path: f.local_path.trim() === '' ? null : f.local_path,
-      books_dir: f.books_dir
+      remote_url: f.remote_url.trim(),
+      branch: f.branch.trim(),
+      local_path: f.local_path.trim() === '' ? null : f.local_path.trim(),
+      books_dir: f.books_dir.trim()
     },
     extractor: {
       ...server.extractor,

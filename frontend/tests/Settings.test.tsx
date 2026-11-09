@@ -160,6 +160,19 @@ describe('Settings', () => {
     expect((sent(client)).notes_repo.remote_url).toBe(masked)
   })
 
+  it('trims the repo fields before saving', async () => {
+    const client = setup()
+    type(await field(/remote url/i), '  git@github.com:me/x.git ')
+    type(screen.getByLabelText(/^branch$/i), ' dev ')
+    type(screen.getByLabelText(/existing clone/i), ' /Users/me/notes ')
+    type(screen.getByLabelText(/books folder/i), ' books ')
+    fireEvent.click(saveBtn())
+    await waitFor(() => expect(client.putSettings).toHaveBeenCalled())
+    expect(sent(client).notes_repo).toEqual({
+      remote_url: 'git@github.com:me/x.git', branch: 'dev', local_path: '/Users/me/notes', books_dir: 'books'
+    })
+  })
+
   it('sends a typed URL in place of the masked one', async () => {
     const client = setup({
       getSettings: vi.fn().mockResolvedValue(withUrl('https://***@github.com/me/notes.git', true))

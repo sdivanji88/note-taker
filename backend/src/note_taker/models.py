@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from ulid import ULID
 
 
@@ -137,6 +137,21 @@ class NotesRepoSettings(BaseModel):
     branch: str = "main"
     local_path: str | None = None
     books_dir: str = "books"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _strip(cls, data):
+        # Pasted values often carry stray whitespace, which would otherwise slip past
+        # the leading-'-' checks and make origin/branch comparisons fail mysteriously.
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        for key in ("remote_url", "branch", "books_dir", "local_path"):
+            if isinstance(data.get(key), str):
+                data[key] = data[key].strip()
+        if data.get("local_path") == "":
+            data["local_path"] = None
+        return data
 
 
 class OllamaSettings(BaseModel):

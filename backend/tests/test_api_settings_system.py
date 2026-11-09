@@ -51,6 +51,16 @@ def test_put_settings_persists(client):
         ("notes_repo", "branch", ""),
         ("notes_repo", "remote_url", "-uhack"),
         ("notes_repo", "remote_url", "ext::sh -c touch% /tmp/pwned"),
+        ("notes_repo", "remote_url", " -uhack"),
+        ("notes_repo", "branch", " -x"),
+        ("notes_repo", "local_path", "relative/notes"),
+        ("notes_repo", "books_dir", ".git/x"),
+        ("notes_repo", "books_dir", "notes/.GIT"),
+        ("notes_repo", "books_dir", "a:b"),
+        ("notes_repo", "books_dir", "a*b"),
+        ("notes_repo", "books_dir", "a?b"),
+        ("notes_repo", "books_dir", "a[b"),
+        ("notes_repo", "books_dir", "a\\b"),
         ("extractor", "timeout_s", 0),
         ("extractor", "timeout_s", 3601),
         ("extractor", "concurrency", 0),
@@ -149,3 +159,22 @@ def test_ping_answers_with_token(client):
 
 def test_ping_requires_token(client):
     assert client.get("/ping").status_code == 401
+
+
+def test_put_settings_trims_and_expands_repo_fields(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    r = put_settings(
+        client, remote_url="  git@github.com:me/notes.git ", branch=" notes ",
+        books_dir=" books ", local_path=" ~/notes ",
+    )
+    assert r.status_code == 200, r.text
+    repo = client.get("/settings", headers=H).json()["notes_repo"]
+    assert repo == {
+        "remote_url": "git@github.com:me/notes.git", "branch": "notes",
+        "books_dir": "books", "local_path": str(tmp_path / "notes"),
+    }
+
+
+def test_put_settings_blank_local_path_means_default(client):
+    assert put_settings(client, local_path="   ").status_code == 200
+    assert client.get("/settings", headers=H).json()["notes_repo"]["local_path"] is None
