@@ -1,4 +1,5 @@
 from conftest import dt, make_batch
+
 from note_taker.models import ExtractionResult, NotesRepoSettings
 
 

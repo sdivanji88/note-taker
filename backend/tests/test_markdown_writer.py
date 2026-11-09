@@ -1,6 +1,8 @@
 from datetime import UTC, timedelta, timezone
 from pathlib import Path
 
+from conftest import dt
+
 from note_taker.markdown_writer import (
     append_highlights,
     existing_marker_ids,
@@ -9,7 +11,6 @@ from note_taker.markdown_writer import (
     render_section,
 )
 from note_taker.models import Book, Capture, Highlight, Kind, Source
-from conftest import dt
 
 GOLDEN = Path(__file__).parent / "golden" / "permutation-city.md"
 BOOK = Book(slug="permutation-city", title="Permutation City", author="Greg Egan", kind=Kind.fiction)

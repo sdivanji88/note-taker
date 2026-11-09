@@ -11,7 +11,15 @@ from note_taker.books import BookCatalog, BookNotFound
 from note_taker.events import EventBus
 from note_taker.git_publisher import GitError, GitPublisher
 from note_taker.markdown_writer import append_highlights, existing_marker_ids
-from note_taker.models import Batch, BatchStatus, Book, Capture, CaptureStatus, Highlight, Settings
+from note_taker.models import (
+    Batch,
+    BatchStatus,
+    Book,
+    Capture,
+    CaptureStatus,
+    Highlight,
+    Settings,
+)
 from note_taker.redact import mask_credentials
 
 log = logging.getLogger(__name__)
@@ -290,7 +298,7 @@ class PushService:
             self._progress(batch_id, "pushing")
             git.push()
             return git.head(), files, written
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001  # any failure (not just git) must roll back; _rollback re-raises
             self._rollback(git, batch_id, pre, attempted, exc)
 
     def _rollback(
@@ -301,7 +309,7 @@ class PushService:
         if pre is not None:
             try:
                 git.rollback(pre, attempted)
-            except Exception as rb_exc:
+            except Exception as rb_exc:  # noqa: BLE001  # reported with the original error, not swallowed
                 # Report both: the user needs the original cause and to know the clone
                 # may need manual attention before the next push.
                 log.error("rollback failed batch=%s: %s", batch_id, _detail(rb_exc))

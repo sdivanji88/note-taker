@@ -28,7 +28,8 @@ def git(repo: Path, *args: str) -> str:
 
 def remote_text(env, rel="books/dune.md") -> str | None:
     r = subprocess.run(
-        ["git", "-C", str(env.remote), "show", f"main:{rel}"], capture_output=True, text=True
+        ["git", "-C", str(env.remote), "show", f"main:{rel}"],
+        check=False, capture_output=True, text=True,
     )
     return r.stdout if r.returncode == 0 else None
 

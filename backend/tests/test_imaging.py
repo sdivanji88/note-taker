@@ -5,12 +5,17 @@ from datetime import datetime
 
 import pytesseract
 import pytest
+from conftest import dt
 from PIL import Image
 
 from note_taker import imaging
 from note_taker.batch_store import BatchStore
-from note_taker.imaging import captured_at, detect_rotation, downscaled_jpeg_bytes, load_upright
-from conftest import dt
+from note_taker.imaging import (
+    captured_at,
+    detect_rotation,
+    downscaled_jpeg_bytes,
+    load_upright,
+)
 
 needs_tesseract = pytest.mark.skipif(shutil.which("tesseract") is None, reason="tesseract not installed")
 

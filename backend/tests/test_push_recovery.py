@@ -168,7 +168,7 @@ def test_concurrent_pushes_serialize(env):
     def run(batch_id):
         try:
             results.append(env.svc.push(batch_id))
-        except Exception as exc:  # surfaced via the assertion below
+        except Exception as exc:  # noqa: BLE001  # surfaced via the assertion below
             errors.append(exc)
 
     threads = [threading.Thread(target=run, args=(b.id,)) for b in (b1, b2)]

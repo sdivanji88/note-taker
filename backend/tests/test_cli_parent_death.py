@@ -55,7 +55,7 @@ def _spawn(tmp_path, *extra):
         try:
             urllib.request.urlopen(req, timeout=1)
             return proc
-        except Exception:
+        except Exception:  # noqa: BLE001  # any connect/HTTP error just means "not up yet"
             if proc.poll() is not None:
                 pytest.fail("backend exited during startup")
             time.sleep(0.2)

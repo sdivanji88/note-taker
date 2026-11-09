@@ -10,7 +10,15 @@ from note_taker import imaging
 from note_taker.batch_store import BatchNotFound, BatchStore
 from note_taker.events import EventBus
 from note_taker.extractors.base import ExtractionError, Extractor
-from note_taker.models import Batch, Capture, CaptureStatus, ExtractionResult, ExtractorKind, Highlight, Source
+from note_taker.models import (
+    Batch,
+    Capture,
+    CaptureStatus,
+    ExtractionResult,
+    ExtractorKind,
+    Highlight,
+    Source,
+)
 
 log = logging.getLogger(__name__)
 
@@ -176,7 +184,7 @@ class ExtractionQueue:
         while not stop.wait(self._health_interval_s):
             try:
                 self.resume_pending()
-            except Exception:  # noqa: BLE001 - the loop must outlive a bad read
+            except Exception:  # the loop must outlive a bad read
                 log.exception("health loop pass failed")
 
     def _work(self, stop: threading.Event) -> None:
@@ -193,7 +201,7 @@ class ExtractionQueue:
                 executor = self._run(job, executor, stop)
             except _Stopped:
                 break
-            except Exception:  # noqa: BLE001 - one bad job must not kill the worker
+            except Exception:  # one bad job must not kill the worker
                 log.exception("extraction job crashed batch=%s capture=%s", job.batch_id, job.capture_id)
 
     def _new_executor(self) -> ThreadPoolExecutor:
@@ -268,7 +276,7 @@ class ExtractionQueue:
             return executor
         except _Stopped:
             raise
-        except Exception as exc:  # noqa: BLE001 - surface any extractor bug on the capture
+        except Exception as exc:  # surface any extractor bug on the capture
             log.exception("extractor crashed capture=%s", job.capture_id)
             self._fail(job, token, f"extraction crashed: {exc}")
             return executor

@@ -3,7 +3,15 @@
 import subprocess
 
 import pytest
-from api_helpers import H, connect, error_code, kindle, new_batch, put_settings, repo_path
+from api_helpers import (
+    H,
+    connect,
+    error_code,
+    kindle,
+    new_batch,
+    put_settings,
+    repo_path,
+)
 from push_helpers import add_batch, git, push_env, remote_text
 
 from note_taker.git_publisher import GitPublisher

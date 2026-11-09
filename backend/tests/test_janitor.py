@@ -1,11 +1,18 @@
 from datetime import timedelta
 
 import pytest
+from conftest import dt
 
 from note_taker.batch_store import BatchStore
 from note_taker.janitor import Janitor, JanitorReport, expiring_soon
-from note_taker.models import Batch, BatchStatus, Capture, CaptureStatus, Settings, Source
-from conftest import dt
+from note_taker.models import (
+    Batch,
+    BatchStatus,
+    Capture,
+    CaptureStatus,
+    Settings,
+    Source,
+)
 
 START = dt(2026, 11, 1)
 

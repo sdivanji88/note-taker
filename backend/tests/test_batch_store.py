@@ -1,8 +1,13 @@
 import pytest
-
-from note_taker.batch_store import BatchNotFound, BatchStore, DuplicatePhoto, UnsupportedImage
-from note_taker.models import CaptureStatus, Highlight, Source
 from conftest import dt
+
+from note_taker.batch_store import (
+    BatchNotFound,
+    BatchStore,
+    DuplicatePhoto,
+    UnsupportedImage,
+)
+from note_taker.models import CaptureStatus, Highlight, Source
 
 
 def test_create_get_list_roundtrip(data_paths):
@@ -153,7 +158,7 @@ def test_list_readable_skips_corrupt_batches(data_paths):
     bad.parent.mkdir(parents=True)
     bad.write_text("{nope")
     assert [b.id for b in store.list_readable()] == [good.id]
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):  # json.JSONDecodeError
         store.list()
 
 
