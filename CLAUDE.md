@@ -30,7 +30,7 @@ if [ -f frontend/package.json ]; then (cd frontend && npx vitest run); else echo
 
 # Integration tests
 # Real-git integration tests (no Ollama needed). Live extractor tests are manual: (cd backend && uv run pytest -m live)
-if [ -f backend/tests/test_api.py ]; then (cd backend && uv run pytest -q tests/test_git_publisher.py tests/test_push_service.py tests/test_api.py); else echo "integration tests not created yet (plan Tasks 5, 6, 11)"; fi
+if [ -f backend/tests/test_api.py ]; then (cd backend && uv run pytest -q tests/test_git_publisher.py tests/test_push_service.py tests/test_push_recovery.py tests/test_api.py tests/test_api_*.py); else echo "integration tests not created yet (plan Tasks 5, 6, 11)"; fi
 if [ -f frontend/e2e/smoke.spec.ts ]; then (cd frontend && npx playwright test); else echo "e2e not created yet (plan Task 16)"; fi
 
 # Run locally
