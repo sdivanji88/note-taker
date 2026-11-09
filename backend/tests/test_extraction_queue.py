@@ -12,6 +12,7 @@ from note_taker.extraction_queue import ExtractionQueue
 from note_taker.extractors.base import ExtractionError, HealthStatus
 from note_taker.extractors.factory import build_extractor
 from note_taker.extractors.fake import FakeExtractor
+from note_taker.extractors.ollama import OllamaVisionExtractor
 from note_taker.models import (
     CaptureStatus,
     ExtractedHighlight,
@@ -617,8 +618,16 @@ def test_fake_extractor_behaviour(tmp_path):
     assert FakeExtractor().extract(tmp_path / "y.png") == ExtractionResult()
 
 
-@pytest.mark.parametrize("kind", list(ExtractorKind))
-def test_build_extractor_not_implemented_until_tasks_8_and_9(kind):
-    # Tasks 8/9 replace this with real Ollama/Tesseract construction.
+def test_build_extractor_returns_ollama_extractor_from_settings():
+    s = ExtractorSettings()
+    s.ollama.base_url = "http://example:1/"
+    s.ollama.model = "mm"
+    ex = build_extractor(s, ExtractorKind.ollama)
+    assert isinstance(ex, OllamaVisionExtractor)
+    assert ex.name == "ollama:mm"
+
+
+def test_build_extractor_tesseract_not_implemented_until_task_9():
+    # Task 9 replaces this with real Tesseract construction.
     with pytest.raises(NotImplementedError):
-        build_extractor(ExtractorSettings(), kind)
+        build_extractor(ExtractorSettings(), ExtractorKind.tesseract)
