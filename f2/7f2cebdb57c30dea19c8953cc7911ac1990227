@@ -1,0 +1,33 @@
+frontend/tests/BatchGrid.test.tsx
+  s_3e829881b83b35::t_18896cc7a8e906 108-109
+backend/tests/test_api_push_events.py
+  s_3e829881b83b35::t_bff4e826bb04e0 12,83-84
+backend/src/note_taker/api/errors.py
+  s_3e829881b83b35::t_0e0d922ff23bc3 26-27
+backend/src/note_taker/git_publisher.py
+  s_3e829881b83b35::t_0e0d922ff23bc3 96-110
+frontend/src/screens/BatchGrid.tsx
+  s_3e829881b83b35::t_0243c2c2dd938a 38-42
+backend/tests/test_push_service.py
+  s_3e829881b83b35::t_bff4e826bb04e0 165-167
+backend/tests/test_push_guards.py
+  s_3e829881b83b35::t_7843e3bdaee67b 1-136
+backend/src/note_taker/push_service.py
+  s_3e829881b83b35::t_0e0d922ff23bc3 15,29-30,182-185,203-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "f27f2cebdb57c30dea19c8953cc7911ac1990227",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
