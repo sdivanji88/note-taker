@@ -1,0 +1,64 @@
+backend/tests/test_api_push_events.py
+  s_3e829881b83b35::t_f7b4ebb6609fc1 1-126
+backend/tests/conftest.py
+  s_3e829881b83b35::t_2e945831a06b31 6-7,10-20,118-166
+backend/tests/queue_helpers.py
+  s_3e829881b83b35::t_1b49964e8685de 7-8
+  s_3e829881b83b35::t_dfee19c330fd22 1-6,9-139
+backend/tests/test_extraction_imaging.py
+  s_3e829881b83b35::t_1b49964e8685de 3
+  s_3e829881b83b35::t_dfee19c330fd22 1-2,4-50
+backend/tests/test_extractor_factory.py
+  s_3e829881b83b35::t_dfee19c330fd22 1-34
+scripts/integration.sh
+  s_3e829881b83b35::t_cca6620962af5c 11
+backend/tests/test_extraction_queue.py
+  s_3e829881b83b35::t_1b49964e8685de 4
+  s_3e829881b83b35::t_dfee19c330fd22 15-16,21
+backend/tests/test_api_uploads.py
+  s_3e829881b83b35::t_f7b4ebb6609fc1 1-146
+backend/tests/test_api_settings_system.py
+  s_3e829881b83b35::t_2e945831a06b31 11-12
+  s_3e829881b83b35::t_f7b4ebb6609fc1 1-10,13-141
+backend/tests/push_helpers.py
+  s_3e829881b83b35::t_1b49964e8685de 8,21
+  s_3e829881b83b35::t_404fc619dd31f0 1-7,9-20,22-133
+backend/tests/test_api.py
+  s_3e829881b83b35::t_f7b4ebb6609fc1 6-14,22-23
+  s_3e829881b83b35::t_2e945831a06b31 20
+  s_3e829881b83b35::t_88468741a393bb 15
+backend/tests/test_api_books_batches.py
+  s_3e829881b83b35::t_f7b4ebb6609fc1 1-172
+backend/tests/test_api_captures.py
+  s_3e829881b83b35::t_2e945831a06b31 17-21
+  s_3e829881b83b35::t_f7b4ebb6609fc1 1-16,22-317
+backend/tests/test_push_recovery.py
+  s_3e829881b83b35::t_404fc619dd31f0 1-11,19-185
+  s_3e829881b83b35::t_1b49964e8685de 12-18
+backend/tests/test_push_service.py
+  s_3e829881b83b35::t_404fc619dd31f0 27
+  s_3e829881b83b35::t_1b49964e8685de 1,4-12
+backend/tests/test_extraction_claims.py
+  s_3e829881b83b35::t_1b49964e8685de 4-11
+  s_3e829881b83b35::t_dfee19c330fd22 1-3,12-212
+scripts/architecture-review.sh
+  s_3e829881b83b35::t_183edc1bb920b6 19-23,30-31,35-37,62-64,66-68,71
+backend/tests/api_helpers.py
+  s_3e829881b83b35::t_f7b4ebb6609fc1 1-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "e5cab3de025ada28045b8178807a8a6e0941c3c8",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
