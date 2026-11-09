@@ -1,0 +1,21 @@
+backend/src/note_taker/janitor.py
+  s_3e829881b83b35::t_e76fa71c99acb0 30-35,37-38
+backend/tests/test_janitor.py
+  s_3e829881b83b35::t_99935ffcb9470d 189-236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1874c13b8aef29f50a99fce86369bc94f5fe46bd",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
