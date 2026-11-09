@@ -1,0 +1,29 @@
+backend/src/note_taker/slug.py
+  s_3e829881b83b35::t_852dd34dceb51b 1-12
+backend/tests/test_markdown_writer.py
+  s_3e829881b83b35::t_16ff1fc55c4db6 143
+  s_3e829881b83b35::t_57690b5d5e77c0 12
+  s_3e829881b83b35::t_b26d7e3c0bd5e8 1-11,13-142,144-156
+backend/tests/test_slug.py
+  s_3e829881b83b35::t_b26d7e3c0bd5e8 1-20
+backend/src/note_taker/markdown_writer.py
+  s_3e829881b83b35::t_852dd34dceb51b 1-77
+backend/tests/golden/permutation-city.md
+  s_3e829881b83b35::t_b26d7e3c0bd5e8 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d0d87592d7437278e1615f10e289b8d16a12866e",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
