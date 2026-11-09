@@ -1,0 +1,21 @@
+frontend/tests/e2eEnv.test.ts
+  s_3e829881b83b35::t_74e3dd483a55b1 1-45
+frontend/e2e/helpers.ts
+  s_3e829881b83b35::t_32e917dc7ea2a8 17-36,46-57,86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "c3dfcab492608d800b2de8f448e225d125a0155e",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
