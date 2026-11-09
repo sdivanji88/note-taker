@@ -11,6 +11,8 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
+_HEALTH_REMOTE_TIMEOUT_S = 5.0
+
 
 def _git_detail(exc: GitError) -> str:
     return mask_credentials(exc.stderr.strip()) or "git failed"
@@ -42,7 +44,8 @@ def _remote_health(svc: Services) -> dict:
     if not git.remote_url:
         return {"ok": False, "detail": "no remote configured"}
     try:
-        git.check_remote()
+        # Short timeout: the UI shows health on its main screen and must not hang on it.
+        git.check_remote(timeout_s=_HEALTH_REMOTE_TIMEOUT_S)
     except GitError as exc:
         return {"ok": False, "detail": _git_detail(exc)}
     return {"ok": True, "detail": "ok"}

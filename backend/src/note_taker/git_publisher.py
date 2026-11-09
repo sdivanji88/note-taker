@@ -1,5 +1,13 @@
+import os
 import subprocess
 from pathlib import Path
+
+# Local commands finish in well under a second; this only stops a wedged git
+# (a stale lock, a hook waiting on input) from hanging a request forever.
+LOCAL_TIMEOUT_S = 20.0
+
+# The session token must not leak to git, its hooks or credential helpers.
+_SECRET_ENV = ("NOTE_TAKER_TOKEN",)
 
 
 class GitError(Exception):
@@ -16,15 +24,36 @@ class GitPublisher:
     are placed after `--` or as option values so they can't be parsed as flags.
     """
 
-    def __init__(self, repo_dir: Path, remote_url: str, branch: str):
+    def __init__(
+        self, repo_dir: Path, remote_url: str, branch: str, network_timeout_s: float = 60.0
+    ):
         self.repo_dir = Path(repo_dir)
         self.remote_url = remote_url
         self.branch = branch
+        self.network_timeout_s = network_timeout_s
+        env = {k: v for k, v in os.environ.items() if k not in _SECRET_ENV}
+        # No terminal prompts (there is no terminal; git would block on stdin),
+        # paths are never globs, and English messages so push can recognise a
+        # rejected (non-fast-forward) push in stderr.
+        env.update(GIT_TERMINAL_PROMPT="0", GIT_LITERAL_PATHSPECS="1", LC_ALL="C")
+        self._env = env
 
-    def _run(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
-        r = subprocess.run(
+    def _exec(self, argv: list[str], timeout_s: float) -> subprocess.CompletedProcess:
+        try:
+            return subprocess.run(
+                argv, check=False, capture_output=True, text=True,
+                stdin=subprocess.DEVNULL, env=self._env, timeout=timeout_s,
+            )
+        except subprocess.TimeoutExpired:
+            name = argv[3] if argv[1] == "-C" else argv[1]
+            raise GitError(f"git {name} timed out after {timeout_s:g}s") from None
+
+    def _run(
+        self, *args: str, check: bool = True, timeout_s: float | None = None
+    ) -> subprocess.CompletedProcess:
+        r = self._exec(
             ["git", "-C", str(self.repo_dir), *args],
-            check=False, capture_output=True, text=True,
+            LOCAL_TIMEOUT_S if timeout_s is None else timeout_s,
         )
         if check and r.returncode != 0:
             raise GitError(r.stderr)
@@ -39,17 +68,17 @@ class GitPublisher:
 
     def clone(self) -> None:
         # Not _run: the repo doesn't exist yet, so there is nothing for -C to point at.
-        r = subprocess.run(
+        r = self._exec(
             ["git", "clone", "--branch", self.branch, "--", self.remote_url, str(self.repo_dir)],
-            check=False, capture_output=True, text=True,
+            self.network_timeout_s,
         )
         if r.returncode != 0:
             raise GitError(r.stderr)
 
-    def check_remote(self) -> None:
-        r = subprocess.run(
+    def check_remote(self, timeout_s: float | None = None) -> None:
+        r = self._exec(
             ["git", "ls-remote", "--exit-code", "--heads", "--", self.remote_url, self.branch],
-            check=False, capture_output=True, text=True,
+            self.network_timeout_s if timeout_s is None else timeout_s,
         )
         if r.returncode != 0:
             raise GitError(r.stderr or f"branch {self.branch!r} not found on remote")
@@ -67,11 +96,11 @@ class GitPublisher:
     def head(self) -> str:
         return self._run("rev-parse", "HEAD").stdout.strip()
 
-    def fetch(self) -> None:
-        self._run("fetch", "origin")
+    def fetch(self, timeout_s: float | None = None) -> None:
+        self._run("fetch", "origin", timeout_s=timeout_s or self.network_timeout_s)
 
-    def pull_rebase(self) -> None:
-        self.fetch()
+    def pull_rebase(self, timeout_s: float | None = None) -> None:
+        self.fetch(timeout_s)
         r = self._run("rebase", f"origin/{self.branch}", check=False)
         if r.returncode != 0:
             # Leave the clone usable for the caller's rollback.
@@ -85,14 +114,14 @@ class GitPublisher:
 
     def push(self) -> None:
         refspec = f"HEAD:refs/heads/{self.branch}"
-        r = self._run("push", "origin", refspec, check=False)
+        r = self._run("push", "origin", refspec, check=False, timeout_s=self.network_timeout_s)
         if r.returncode == 0:
             return
         # Only a lost race is worth retrying; auth/network errors won't change.
         if "rejected" not in r.stderr and "fetch first" not in r.stderr:
             raise GitError(r.stderr)
         self.pull_rebase()
-        self._run("push", "origin", refspec)
+        self._run("push", "origin", refspec, timeout_s=self.network_timeout_s)
 
     def _repo_relative(self, path: Path) -> str:
         """Repo-relative posix path, or ValueError if it escapes the repo.

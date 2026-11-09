@@ -19,6 +19,8 @@ log = logging.getLogger(__name__)
 # corrupt each other's rollback, so every push (and recovery) is serialized.
 _PUSH_LOCK = threading.Lock()
 
+_SYNC_TIMEOUT_S = 10.0
+
 _Group = tuple[Book, list[tuple[Capture, Highlight]]]
 
 
@@ -175,7 +177,8 @@ class PushService:
             git = self._git_factory()
             if not git.is_cloned() or git.is_dirty(self._settings().notes_repo.books_dir):
                 return
-            git.pull_rebase()
+            # Short timeout: this runs inside GET /books, which the UI waits on.
+            git.pull_rebase(timeout_s=_SYNC_TIMEOUT_S)
         except GitError as exc:
             log.info("repo sync skipped: %s", _detail(exc))
         finally:
