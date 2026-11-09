@@ -4,7 +4,7 @@ import pytest
 
 from note_taker.batch_store import BatchStore
 from note_taker.janitor import Janitor, JanitorReport, expiring_soon
-from note_taker.models import Batch, Capture, CaptureStatus, Settings, Source
+from note_taker.models import Batch, BatchStatus, Capture, CaptureStatus, Settings, Source
 from conftest import dt
 
 START = dt(2026, 11, 1)
@@ -234,3 +234,17 @@ def test_stale_warning_between_listing_and_delete_is_not_deleted(store, clock):
     store.list_readable = lambda: iter([stale])
     assert j.run() == JanitorReport()
     assert store.get(b.id)
+
+
+@pytest.mark.parametrize("warned", [False, True])
+def test_batch_mid_push_is_neither_warned_nor_deleted(store, clock, warned):
+    b = store.create(None)
+    _add_capture(store, b.id, "approved")
+    batch = store.get(b.id)
+    batch.status = BatchStatus.pushing
+    batch.warned_at = START + timedelta(days=30) if warned else None
+    store.save(batch, touch=False)
+    clock.t = START + timedelta(days=40)
+
+    assert _janitor(store, clock).run() == JanitorReport()
+    assert store.get(b.id).warned_at == batch.warned_at

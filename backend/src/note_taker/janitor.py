@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from note_taker.batch_store import BatchStore
-from note_taker.models import Batch, Settings
+from note_taker.models import Batch, BatchStatus, Settings
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +26,10 @@ def expiring_soon(batch: Batch, settings: Settings, now: datetime) -> bool:
 def _action(batch: Batch, settings: Settings, now: datetime) -> str | None:
     """"warn", "delete" or None. Pure so it can be re-evaluated on a freshly read batch."""
     if batch.is_finished():
+        return None
+    # A push owns the batch until it reopens it; deleting it mid-push would lose the
+    # push's bookkeeping (and its photos) under it. Expiry resumes once it is open.
+    if batch.status is BatchStatus.pushing:
         return None
     # A warning only counts if it belongs to the current expiry window. An edit moves
     # updated_at (and a settings change moves the window), so an older warning says
