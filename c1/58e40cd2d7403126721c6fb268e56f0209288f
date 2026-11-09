@@ -1,0 +1,32 @@
+frontend/package.json
+  s_3e829881b83b35::t_e8a2dd55790da5 14-15
+frontend/playwright.config.ts
+  s_3e829881b83b35::t_15adb2a7b83932 1-15
+frontend/e2e/helpers.ts
+  s_3e829881b83b35::t_f82a03fbca9301 59
+  s_3e829881b83b35::t_15adb2a7b83932 1-58,60-169
+scripts/ui-test.sh
+  s_3e829881b83b35::t_012258d0fc9a2c 14-15
+frontend/e2e/smoke.spec.ts
+  s_3e829881b83b35::t_03f5b873b86424 60,63,72,116,122,146-147
+  s_3e829881b83b35::t_e8a2dd55790da5 1-46,54-59,61-62,64-71,73-115,117-121,123-145,148-152
+  s_3e829881b83b35::t_012258d0fc9a2c 47-53
+scripts/integration.sh
+  s_3e829881b83b35::t_012258d0fc9a2c 12-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "c158e40cd2d7403126721c6fb268e56f0209288f",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
