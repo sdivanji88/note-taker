@@ -1,0 +1,21 @@
+backend/src/note_taker/books.py
+  s_3e829881b83b35::t_0adc07d98e8edf 4,21-25,89-95,120,122-128,130-143
+backend/tests/test_books.py
+  s_3e829881b83b35::t_abd681cb4b714b 141-174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a071916b11bbd4000dd89365f2a06b3fe1c5e9eb",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
