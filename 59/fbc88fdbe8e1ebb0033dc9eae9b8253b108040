@@ -1,0 +1,21 @@
+backend/tests/test_cli_token.py
+  s_3e829881b83b35::t_d8854fff347534 1-42
+backend/src/note_taker/__main__.py
+  s_3e829881b83b35::t_cdf861fa08f630 3,24-25,28-30,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "59fbc88fdbe8e1ebb0033dc9eae9b8253b108040",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
