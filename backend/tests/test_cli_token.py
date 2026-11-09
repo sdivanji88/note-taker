@@ -7,7 +7,11 @@ from note_taker import __main__ as cli
 @pytest.fixture
 def captured(monkeypatch):
     seen = {}
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: seen.update(app=app, **kw))
+    monkeypatch.setattr(
+        uvicorn.Server,
+        "run",
+        lambda self: seen.update(app=self.config.app, host=self.config.host, port=self.config.port),
+    )
     return seen
 
 

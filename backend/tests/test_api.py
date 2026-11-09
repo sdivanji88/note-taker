@@ -251,7 +251,11 @@ def test_cli_binds_localhost_with_args(tmp_path, monkeypatch):
     from note_taker.redact import RedactingFilter
 
     seen = {}
-    monkeypatch.setattr(uvicorn, "run", lambda app, **kw: seen.update(app=app, **kw))
+    monkeypatch.setattr(
+        uvicorn.Server,
+        "run",
+        lambda self: seen.update(app=self.config.app, host=self.config.host, port=self.config.port),
+    )
     cli.main(["--port", "8765", "--token", "t", "--data-dir", str(tmp_path / "d")])
     assert isinstance(seen["app"], FastAPI)
     assert seen["host"] == "127.0.0.1"
