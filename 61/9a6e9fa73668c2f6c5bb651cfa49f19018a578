@@ -1,0 +1,22 @@
+backend/tests/test_books.py
+  s_3e829881b83b35::t_f47305487527c9 1-140
+backend/src/note_taker/books.py
+  s_3e829881b83b35::t_22e3ab24f8748c 4-119
+  s_3e829881b83b35::t_f93342ab591d34 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "619a6e9fa73668c2f6c5bb651cfa49f19018a578",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
