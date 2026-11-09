@@ -1,0 +1,25 @@
+backend/src/note_taker/extraction_queue.py
+  s_3e829881b83b35::t_9e1fbb43f26fae 44-55,83-84,118-119,163,228,232-233,235-250,253,264,267,273,276,307,319,322,329,342-349,351-378,385,395-403
+  s_3e829881b83b35::t_9b30952ba1edd4 404
+backend/tests/test_extraction_queue.py
+  s_3e829881b83b35::t_e595e6726b1996 575-580
+  s_3e829881b83b35::t_61eb9c5db23169 1,493-533,535-566,568-574,581-607
+  s_3e829881b83b35::t_935b61c190c3d7 534,567
+  s_3e829881b83b35::t_1957812cce709c 608-609
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "d8cd761c6a7d00212f163d882cb336983398d130",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
