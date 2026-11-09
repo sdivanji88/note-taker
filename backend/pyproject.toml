@@ -1,0 +1,37 @@
+[project]
+name = "note-taker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Sughosh Divanji", email = "sdivanji@paloaltonetworks.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.2",
+    "httpx>=0.28.1",
+    "opencv-python-headless>=5.0.0.93",
+    "pillow>=13.0.0",
+    "pydantic>=2.14.3",
+    "pytesseract>=0.3.13",
+    "python-ulid>=4.1.0",
+    "pyyaml>=6.0.3",
+    "sse-starlette>=3.7.0",
+    "uvicorn>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.17,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "freezegun>=1.5.5",
+    "pytest>=9.2.0",
+    "respx>=0.23.1",
+]
+
+[tool.pytest.ini_options]
+markers = ["live: needs real Ollama/Tesseract"]
+addopts = "-m 'not live'"
+pythonpath = ["tests"]
