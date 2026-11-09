@@ -138,3 +138,37 @@ def test_get_rejects_unsafe_slug(catalog, slug):
 def test_book_path_rejects_unsafe_slug(catalog, slug):
     with pytest.raises(ValueError):
         catalog.book_path(slug)
+
+
+@pytest.mark.parametrize("content", ["{not json", '{"books": [', "[1, 2]", '"str"', '{"books": 5}'])
+def test_corrupt_pending_file_is_moved_aside(catalog, data_paths, content):
+    data_paths.pending_books_file.write_text(content, encoding="utf-8")
+    assert catalog.list() == []
+    catalog.prune_pending()
+    book = catalog.create("Dune", "Frank", Kind.fiction)
+    assert book.pending
+    backup = data_paths.pending_books_file.with_name("pending_books.json.corrupt")
+    assert backup.read_text(encoding="utf-8") == content
+    assert [b.slug for b in catalog.list()] == ["dune"]
+
+
+def test_bad_pending_item_does_not_drop_good_ones(catalog, data_paths):
+    data_paths.pending_books_file.write_text(
+        '{"books": [{"slug": "emma", "title": "Emma", "kind": "fiction"},'
+        ' {"slug": "bad", "title": "Bad", "kind": "poetry"}, 7]}',
+        encoding="utf-8",
+    )
+    catalog.create("Dune", "Frank", Kind.fiction)
+    assert sorted(b.slug for b in catalog.list()) == ["dune", "emma"]
+    catalog.prune_pending()
+    assert sorted(b.slug for b in catalog.list()) == ["dune", "emma"]
+
+
+def test_list_skips_non_slug_and_non_file_entries(catalog, repo):
+    fm = "---\ntitle: T\nkind: fiction\n---\n"
+    write_book(repo, "My Book", fm)
+    write_book(repo, "Dune", fm)
+    write_book(repo, "", fm)  # a file named ".md"
+    (repo / "books" / "x.md").mkdir()
+    write_book(repo, "good-one", fm)
+    assert [b.slug for b in catalog.list()] == ["good-one"]

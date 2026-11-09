@@ -1,6 +1,7 @@
 # The list() method shadows the builtin inside the class body; lazy annotations keep list[...] valid.
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,11 @@ from note_taker.slug import slugify
 # Exactly what slugify emits. Slugs name files under the repo, so anything else
 # (".." or path separators in particular) must never reach the filesystem.
 _SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+log = logging.getLogger(__name__)
+
+
+_CORRUPT = object()
 
 
 class BookNotFound(Exception):
@@ -80,7 +86,13 @@ class BookCatalog:
         directory = self._books_path()
         if not directory.is_dir():
             return []
-        return [self._read_book_file(p) for p in directory.glob("*.md")]
+        # Stems that aren't slugs could never be fetched or written via get()/book_path(), so
+        # offering them in the picker would only defer the failure to push time.
+        return [
+            self._read_book_file(p)
+            for p in directory.glob("*.md")
+            if _SLUG_RE.match(p.stem) and p.is_file()
+        ]
 
     def _read_book_file(self, path: Path) -> Book:
         # A hand-edited or foreign file must still show up in the picker rather than break listing.
@@ -105,13 +117,30 @@ class BookCatalog:
         return [Book(**p.model_dump(), pending=True) for p in self._read_pending()]
 
     def _read_pending(self) -> list[PendingBook]:
-        data = read_json(self._paths.pending_books_file)
-        if not data:
-            return []
+        path = self._paths.pending_books_file
         try:
-            return [PendingBook(**item) for item in data.get("books", [])]
-        except (ValidationError, TypeError, AttributeError):
+            data = read_json(path)
+        except ValueError:
+            data = _CORRUPT
+        if data is None:
             return []
+        if not isinstance(data, dict) or not isinstance(data.get("books"), list):
+            self._quarantine(path)
+            return []
+        books = []
+        for item in data["books"]:
+            try:
+                books.append(PendingBook.model_validate(item))
+            except ValidationError:
+                # Drop only the bad entry; losing the whole list would lose every other pending book.
+                log.warning("dropping malformed pending book entry: %r", item)
+        return books
+
+    def _quarantine(self, path: Path) -> None:
+        # Keep the bytes for manual recovery instead of letting the next write overwrite them.
+        backup = path.with_name(path.name + ".corrupt")
+        log.warning("unparseable pending books file; moved to %s", backup)
+        path.replace(backup)
 
     def _write_pending(self, pending: list[PendingBook]) -> None:
         write_json_atomic(
