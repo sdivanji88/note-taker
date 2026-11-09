@@ -1,0 +1,31 @@
+frontend/src/screens/ReviewEditor.tsx
+  s_3e829881b83b35::t_39a03780ed162b 5,42-43,51,57,59,138-144,165,178,182,189-196
+  s_3e829881b83b35::t_55b35f6a68e941 197-198
+frontend/tests/ReviewEditor.test.tsx
+  s_3e829881b83b35::t_c6e2769c8a922e 183-184
+  s_3e829881b83b35::t_1ad4b6c406a541 178-182,185-186,207
+frontend/src/hooks/useCaptureDraft.ts
+  s_3e829881b83b35::t_39a03780ed162b 94,105-106,108
+frontend/src/components/CapturePane.tsx
+  s_3e829881b83b35::t_39a03780ed162b 26-27,31,46-49,62,73-88,114-115,126-127,129,140-141,190-191
+frontend/tests/ReviewEditorSafety.test.tsx
+  s_3e829881b83b35::t_f321072dbab04f 1-139
+frontend/src/components/ConfirmDialog.tsx
+  s_3e829881b83b35::t_39a03780ed162b 7,15,49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "53f17910bcf45852953ebf354d20a5944a5cd252",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
