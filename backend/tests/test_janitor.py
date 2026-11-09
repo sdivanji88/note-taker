@@ -186,3 +186,51 @@ def test_delete_oserror_on_one_batch_does_not_stop_others(store, clock, monkeypa
     monkeypatch.setattr(store, "delete_if", flaky)
     report = j.run()
     assert report.deleted == [c.id]
+
+
+def _touch_at(store, clock, batch_id, when):
+    # A user edit: save() with touch stamps updated_at from the store's clock.
+    saved, clock.t = clock.t, when
+    store.save(store.get(batch_id))
+    clock.t = saved
+
+
+def test_warning_from_earlier_window_is_not_reused_after_user_edit(store, clock):
+    b = store.create(None)
+    j = _janitor(store, clock)
+    clock.t = START + timedelta(days=23)
+    assert j.run().warned == [b.id]
+    _touch_at(store, clock, b.id, START + timedelta(days=29))
+    clock.t = START + timedelta(days=59, minutes=1)  # just past the new expiry
+    report = j.run()
+    assert report.warned == [b.id] and report.deleted == []
+    assert store.get(b.id).warned_at == clock.t
+    clock.t += timedelta(hours=24)
+    assert j.run().deleted == [b.id]
+    assert store.list() == []
+
+
+def test_raised_expiry_requires_a_new_warning(store, clock):
+    b = store.create(None)
+    clock.t = START + timedelta(days=23)
+    _janitor(store, clock).run()
+    j = _janitor(store, clock, _settings(expiry_days=90))
+    clock.t = START + timedelta(days=31)
+    assert j.run() == JanitorReport()
+    clock.t = START + timedelta(days=83)  # new window start: 90 - 7
+    assert j.run().warned == [b.id]
+    clock.t += timedelta(days=7)  # at the new expiry, warning is 7 days old
+    assert j.run().deleted == [b.id]
+
+
+def test_stale_warning_between_listing_and_delete_is_not_deleted(store, clock):
+    b = store.create(None)
+    clock.t = START + timedelta(days=23)
+    j = _janitor(store, clock)
+    j.run()
+    stale = store.get(b.id)
+    _touch_at(store, clock, b.id, START + timedelta(days=29))
+    clock.t = START + timedelta(days=60)
+    store.list_readable = lambda: iter([stale])
+    assert j.run() == JanitorReport()
+    assert store.get(b.id)

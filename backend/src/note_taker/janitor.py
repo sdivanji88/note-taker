@@ -27,11 +27,15 @@ def _action(batch: Batch, settings: Settings, now: datetime) -> str | None:
     """"warn", "delete" or None. Pure so it can be re-evaluated on a freshly read batch."""
     if batch.is_finished():
         return None
-    if batch.warned_at is None:
+    # A warning only counts if it belongs to the current expiry window. An edit moves
+    # updated_at (and a settings change moves the window), so an older warning says
+    # nothing about the user having seen this expiry coming.
+    exp = batch.expires_at(settings.batches.expiry_days)
+    window_start = exp - timedelta(days=settings.batches.warn_days_before)
+    if batch.warned_at is None or batch.warned_at < window_start:
         # Never delete without a prior warning, even if long past expiry.
-        return "warn" if expiring_soon(batch, settings, now) else None
-    expired = now >= batch.expires_at(settings.batches.expiry_days)
-    if expired and now - batch.warned_at >= _DELETE_GRACE:
+        return "warn" if now >= window_start else None
+    if now >= exp and now - batch.warned_at >= _DELETE_GRACE:
         return "delete"
     return None
 
