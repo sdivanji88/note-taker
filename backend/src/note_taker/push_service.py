@@ -90,15 +90,20 @@ class PushService:
             git = self._git_factory()
             books_dir = self._settings().notes_repo.books_dir
             self._check_repo(git, books_dir)
-            batch = self._store.get(batch_id)
-            approved = [c for c in batch.captures if c.status == CaptureStatus.approved]
-            if not approved:
-                raise PushError("nothing_to_push", "no approved captures in this batch")
-            # Resolved before anything is written, so an unknown book fails cleanly.
-            groups = self._group_by_book(batch, approved)
+            # Snapshot and the `pushing` flag are taken under one store lock hold: from
+            # then on the API refuses edits, so what we write is exactly what was reviewed.
+            batch = self._store.modify(batch_id, _set_status(BatchStatus.pushing), touch=False)
+            try:
+                approved = [c for c in batch.captures if c.status == CaptureStatus.approved]
+                if not approved:
+                    raise PushError("nothing_to_push", "no approved captures in this batch")
+                # Resolved before anything is written, so an unknown book fails cleanly.
+                groups = self._group_by_book(batch, approved)
+            except BaseException:
+                self._store.modify(batch_id, _set_status(BatchStatus.open), touch=False)
+                raise
 
             log.info("push started batch=%s captures=%d", batch_id, len(approved))
-            self._store.modify(batch_id, _set_status(BatchStatus.pushing), touch=False)
             self._progress(batch_id, "started")
             try:
                 sha, files, written = self._publish(git, batch_id, groups, books_dir)

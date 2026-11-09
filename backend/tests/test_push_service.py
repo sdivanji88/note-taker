@@ -234,3 +234,19 @@ def test_push_delivers_stranded_local_commit(env):
     assert markers(batch)[0] in remote_text(env)
     assert git(env.remote, "rev-parse", "main") == git(env.clone, "rev-parse", "HEAD")
     assert res.batch_deleted is True
+
+
+@pytest.mark.parametrize(
+    ("slug", "statuses", "code"),
+    [("dune", ("ready",), "nothing_to_push"), ("ghost", ("approved",), "unknown_book")],
+)
+def test_rejected_push_leaves_batch_open(env, slug, statuses, code):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, slug, statuses)
+
+    with pytest.raises(PushError) as e:
+        env.svc.push(batch.id)
+
+    assert e.value.code == code
+    assert env.store.get(batch.id).status == BatchStatus.open
+    assert env.events.stages == []

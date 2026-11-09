@@ -11,6 +11,7 @@ from push_helpers import (
     remote_text,
 )
 
+from note_taker.api.deps import ApiError, ensure_not_pushing
 from note_taker.models import (
     BatchStatus,
     CaptureStatus,
@@ -222,3 +223,44 @@ def test_capture_added_after_recover_reopen_keeps_batch(env):
 
     after = env.store.get(batch.id)
     assert after.captures[-1].highlights[0].text == "late upload"
+
+
+def test_edit_racing_push_start_is_either_written_or_refused(env):
+    # A user edit (the API path: modify + ensure_not_pushing) fired the moment push
+    # reads the batch must either land before the snapshot or be refused; it must
+    # never be accepted yet missing from the markdown.
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved", "ready"))
+    refused = []
+
+    def user_edit():
+        def change(b):
+            ensure_not_pushing(b)
+            b.captures[0].highlights[0].text = "edited right before push"
+
+        try:
+            env.store.modify(batch.id, change)
+        except ApiError as exc:
+            refused.append(exc)
+
+    real_get = env.store.get
+    armed = [True]
+
+    def get(bid):
+        result = real_get(bid)
+        if armed[0]:
+            armed[0] = False
+            t = threading.Thread(target=user_edit)
+            t.start()
+            t.join(timeout=0.5)  # blocks the full timeout only if push holds the store lock
+        return result
+
+    env.store.get = get
+    env.svc.push(batch.id)
+    env.store.get = real_get
+
+    after = env.store.get(batch.id)
+    text = after.captures[0].highlights[0].text
+    assert after.captures[0].status == CaptureStatus.pushed
+    assert text in remote_text(env)
+    assert refused or text == "edited right before push"
