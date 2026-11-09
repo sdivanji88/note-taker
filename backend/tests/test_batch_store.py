@@ -144,3 +144,24 @@ def test_unsafe_batch_ids_are_not_found_and_touch_nothing(data_paths, make_image
 
 def keep_capture(store, batch):
     return store.add_kindle(batch.id, [], None, None, None, None)
+
+
+def test_list_readable_skips_corrupt_batches(data_paths):
+    store = BatchStore(data_paths)
+    good = store.create(None)
+    bad = data_paths.batch_file("01ARZ3NDEKTSV4RRFFQ69G5FAV")
+    bad.parent.mkdir(parents=True)
+    bad.write_text("{nope")
+    assert [b.id for b in store.list_readable()] == [good.id]
+    with pytest.raises(Exception):
+        store.list()
+
+
+def test_delete_if_deletes_only_when_predicate_holds(data_paths):
+    store = BatchStore(data_paths)
+    b = store.create(None)
+    assert store.delete_if(b.id, lambda _: False) is False
+    assert store.get(b.id)
+    assert store.delete_if(b.id, lambda _: True) is True
+    assert store.delete_if(b.id, lambda _: True) is False
+    assert store.list() == []

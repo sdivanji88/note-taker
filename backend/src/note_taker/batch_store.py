@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import shutil
 import threading
 from collections.abc import Callable
@@ -14,6 +15,9 @@ from note_taker import imaging
 from note_taker.jsonio import read_json, write_json_atomic
 from note_taker.models import Batch, Capture, CaptureStatus, Highlight, Source
 from note_taker.paths import DataPaths
+
+
+log = logging.getLogger(__name__)
 
 
 class BatchNotFound(Exception):
@@ -87,6 +91,23 @@ class BatchStore:
                 for d in root.iterdir()
                 if (data := read_json(d / "batch.json")) is not None
             ]
+        return sorted(batches, key=lambda b: b.created_at)
+
+    def list_readable(self) -> list[Batch]:
+        # For the janitor: one corrupt batch.json must not hide every other batch from
+        # expiry, whereas list() fails loudly so API callers notice corruption.
+        with _LOCK:
+            root = self._paths.batches_dir
+            if not root.exists():
+                return []
+            batches = []
+            for d in root.iterdir():
+                try:
+                    data = read_json(d / "batch.json")
+                    if data is not None:
+                        batches.append(Batch.model_validate(data))
+                except Exception:
+                    log.warning("skipping unreadable batch %s", d.name, exc_info=True)
         return sorted(batches, key=lambda b: b.created_at)
 
     def save(self, batch: Batch, touch: bool = True) -> Batch:
@@ -188,6 +209,19 @@ class BatchStore:
             return  # nothing legitimate to delete; never rmtree an unvalidated path
         with _LOCK:
             shutil.rmtree(self._paths.batch_dir(batch_id), ignore_errors=True)
+
+    def delete_if(self, batch_id: str, should_delete: Callable[[Batch], bool]) -> bool:
+        # Check and delete under one lock hold so a concurrent user edit cannot land
+        # between the janitor's decision and the rmtree.
+        with _LOCK:
+            try:
+                batch = self.get(batch_id)
+            except BatchNotFound:
+                return False
+            if not should_delete(batch):
+                return False
+            self.delete(batch_id)
+            return True
 
     def _write(self, batch: Batch) -> None:
         write_json_atomic(self._paths.batch_file(batch.id), batch.model_dump(mode="json"))
