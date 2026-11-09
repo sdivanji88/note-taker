@@ -1,3 +1,4 @@
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -62,3 +63,43 @@ def make_image(tmp_path):
         return path
 
     return _make
+
+
+@pytest.fixture(autouse=True)
+def hermetic_git(monkeypatch):
+    # Tests shell out to real git; isolate them from the developer's global
+    # config and identity so they neither depend on nor modify it.
+    for key, value in {
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_SYSTEM": "/dev/null",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_AUTHOR_NAME": "Test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "Test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+    }.items():
+        monkeypatch.setenv(key, value)
+
+
+def _git(cwd: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True)
+
+
+@pytest.fixture
+def bare_remote(tmp_path) -> Path:
+    """A bare 'origin' on branch main holding one seed commit (README.md)."""
+    remote = tmp_path / "remote.git"
+    seed = tmp_path / "seed"
+    subprocess.run(
+        ["git", "init", "--bare", "-b", "main", str(remote)],
+        check=True, capture_output=True, text=True,
+    )
+    subprocess.run(
+        ["git", "init", "-b", "main", str(seed)], check=True, capture_output=True, text=True
+    )
+    (seed / "README.md").write_text("# notes\n")
+    _git(seed, "add", "README.md")
+    _git(seed, "commit", "-m", "seed")
+    _git(seed, "push", str(remote), "main")
+    return remote
