@@ -16,18 +16,25 @@ MAX_FILE_LOC=500
 MAX_FUNCTION_LOC=50
 MAX_IMPORTS_PER_FILE=15
 
+# Composition roots exist to wire every component together, so a high import count is
+# their job rather than a leak. Exempt from the import-count check ONLY (not LOC).
+# Keep this list to files whose sole role is wiring; anything else must pass.
+COMPOSITION_ROOTS="./backend/src/note_taker/api/app.py ./backend/src/note_taker/api/deps.py"
+
 echo "# Architecture review — $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 echo "## Stage 1 — static metrics" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 
 # Collect source files based on detected stack (extend as needed)
+# Dependency, build and cache dirs are excluded at ANY depth (e.g. backend/.venv),
+# not just at the repo root.
 SOURCE_FILES=$(find . -type f \
   \( -name "*.py" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \
      -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.rb" -o -name "*.kt" \) \
-  -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./vendor/*" \
-  -not -path "./dist/*" -not -path "./build/*" -not -path "./.venv/*" \
-  -not -path "./target/*" 2>/dev/null)
+  -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/vendor/*" \
+  -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/.venv/*" \
+  -not -path "*/target/*" -not -path "*/__pycache__/*" 2>/dev/null)
 
 # 1a. Files exceeding LOC threshold
 echo "### Files exceeding $MAX_FILE_LOC LOC" >> "$REPORT_FILE"
@@ -52,12 +59,16 @@ echo "" >> "$REPORT_FILE"
 echo "### Files with > $MAX_IMPORTS_PER_FILE imports" >> "$REPORT_FILE"
 LEAKY=0
 for f in $SOURCE_FILES; do
+  case " $COMPOSITION_ROOTS " in *" $f "*) continue ;; esac
+  # grep -c prints 0 AND exits 1 on no match, so `|| echo 0` would yield "0\n0";
+  # `|| true` plus a default keeps the value a single integer.
   case "$f" in
-    *.py) count=$(grep -cE "^(import |from .* import )" "$f" 2>/dev/null || echo 0) ;;
-    *.ts|*.tsx|*.js|*.jsx) count=$(grep -cE "^(import |const .* = require)" "$f" 2>/dev/null || echo 0) ;;
-    *.go) count=$(awk '/^import \(/,/^\)/' "$f" 2>/dev/null | grep -cE '^\s*"' || echo 0) ;;
+    *.py) count=$(grep -cE "^(import |from .* import )" "$f" 2>/dev/null || true) ;;
+    *.ts|*.tsx|*.js|*.jsx) count=$(grep -cE "^(import |const .* = require)" "$f" 2>/dev/null || true) ;;
+    *.go) count=$(awk '/^import \(/,/^\)/' "$f" 2>/dev/null | grep -cE '^\s*"' || true) ;;
     *) count=0 ;;
   esac
+  count=${count:-0}
   if [ "$count" -gt "$MAX_IMPORTS_PER_FILE" ]; then
     echo "- $f ($count imports)" >> "$REPORT_FILE"
     LEAKY=$((LEAKY + 1))

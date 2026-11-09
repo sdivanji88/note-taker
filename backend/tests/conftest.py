@@ -3,9 +3,21 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from api_helpers import TOKEN
+from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
 
-from note_taker.models import Batch, Capture, CaptureStatus, Source
+from note_taker import imaging
+from note_taker.api.app import AppConfig, create_app
+from note_taker.extractors.fake import FakeExtractor
+from note_taker.models import (
+    Batch,
+    Capture,
+    CaptureStatus,
+    ExtractedHighlight,
+    ExtractionResult,
+    Source,
+)
 from note_taker.paths import DataPaths
 
 
@@ -103,3 +115,52 @@ def bare_remote(tmp_path) -> Path:
     _git(seed, "commit", "-m", "seed")
     _git(seed, "push", str(remote), "main")
     return remote
+
+
+# --- API test world (shared by the test_api*.py modules) ----------------------
+
+
+@pytest.fixture
+def no_osd(monkeypatch):
+    # Rotation guessing shells out to Tesseract; modules that aren't testing it opt in
+    # (pytestmark usefixtures) so it stays inert and fast.
+    monkeypatch.setattr(imaging, "detect_rotation", lambda path: 0)
+
+
+@pytest.fixture
+def fake():
+    return FakeExtractor(
+        result=ExtractionResult(highlights=[ExtractedHighlight(text="mathematical possibility")])
+    )
+
+
+@pytest.fixture
+def make_app(tmp_path, fake):
+    clients: list[TestClient] = []
+
+    def _make(extractor=None, **cfg) -> TestClient:
+        ex = extractor or fake
+        config = AppConfig(data_dir=tmp_path / "data", token=TOKEN, **cfg)
+        app = create_app(config, extractor_provider=lambda kind: ex)
+        client = TestClient(app)
+        client.__enter__()
+        clients.append(client)
+        return client
+
+    yield _make
+    for c in clients:
+        c.__exit__(None, None, None)
+
+
+@pytest.fixture
+def client(make_app) -> TestClient:
+    return make_app()
+
+
+@pytest.fixture
+def gif(tmp_path):
+    from PIL import Image
+
+    p = tmp_path / "anim.gif"
+    Image.new("RGB", (10, 10), "white").save(p, "GIF")
+    return p
