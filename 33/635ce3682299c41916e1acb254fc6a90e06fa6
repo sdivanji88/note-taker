@@ -1,0 +1,23 @@
+backend/src/note_taker/batch_store.py
+  s_3e829881b83b35::t_2ed2bcac6bcf76 4-171
+  s_3e829881b83b35::t_41e2cafb6a7ec6 1-3
+backend/tests/test_batch_store.py
+  s_3e829881b83b35::t_f8b500bdadeec1 1-4,6-98
+  s_3e829881b83b35::t_a0c9b35ff09ca5 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "33635ce3682299c41916e1acb254fc6a90e06fa6",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
