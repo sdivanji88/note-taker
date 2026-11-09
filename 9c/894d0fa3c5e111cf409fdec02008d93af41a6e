@@ -1,0 +1,27 @@
+session-handoff.md
+  s_3e829881b83b35::t_a79aef395ae44d 26
+backend/tests/fixtures/README.md
+  s_3e829881b83b35::t_d01a7ac67e6b5a 1-12
+CLAUDE.md
+  s_3e829881b83b35::t_b08936d4bbed83 54-55
+docs/superpowers/plans/2026-11-08-note-taker.md
+  s_3e829881b83b35::t_bb882eb8dd3841 55,120,140,403-404,406,410,420,440-443,459-460,472-473,496,555,557,572,679,690,725
+.gitignore
+  s_3e829881b83b35::t_d01a7ac67e6b5a 229-236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9c894d0fa3c5e111cf409fdec02008d93af41a6e",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
