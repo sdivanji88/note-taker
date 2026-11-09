@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ulid import ULID
 
+from note_taker import imaging
 from note_taker.jsonio import read_json, write_json_atomic
 from note_taker.models import Batch, Capture, CaptureStatus, Highlight, Source
 from note_taker.paths import DataPaths
@@ -29,11 +30,6 @@ class DuplicatePhoto(Exception):
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-def captured_at(data: bytes, fallback: datetime) -> datetime:
-    # Stub: Task 7 replaces this with imaging.captured_at (EXIF timestamp).
-    return fallback
 
 
 def _is_valid_id(batch_id: str) -> bool:
@@ -118,17 +114,16 @@ class BatchStore:
             batch = self.get(batch_id)
             if any(c.image_sha256 == sha for c in batch.captures):
                 raise DuplicatePhoto(filename)
-            capture = Capture(
-                source=Source.photo,
-                image_sha256=sha,
-                captured_at=captured_at(data, self._now()),
-            )
+            uploaded = self._now()
+            # Placeholder until the photo is on disk: EXIF is read from the file.
+            capture = Capture(source=Source.photo, image_sha256=sha, captured_at=uploaded)
             capture.image_file = f"{capture.id}.{ext}"
             photo = self._paths.photos_dir(batch_id) / capture.image_file
             photo.parent.mkdir(parents=True, exist_ok=True)
             photo.write_bytes(data)
-            batch.captures.append(capture)
             try:
+                capture.captured_at = imaging.captured_at(photo, uploaded)
+                batch.captures.append(capture)
                 self.save(batch)
             except BaseException:
                 photo.unlink(missing_ok=True)
