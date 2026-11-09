@@ -86,6 +86,9 @@ export async function startBackend(
 
   let stderr = ''
   child.stderr?.on('data', (chunk: Buffer) => {
+    // Forwarded so `npm run dev` shows the backend's logs (they never contain the
+    // token: it is not logged, and ?token= is redacted by the backend's log filter).
+    process.stderr.write(chunk)
     stderr = (stderr + chunk.toString()).slice(-STDERR_LIMIT)
   })
 
@@ -172,5 +175,10 @@ export async function startBackend(
     await stop()
     throw err
   }
+  // Startup failures are reported through the rejection above; afterwards a dying
+  // backend would otherwise be silent until the next API call fails.
+  child.once('exit', (code, signal) => {
+    console.error(`note-taker: backend exited (${signal ?? `code ${code}`})`)
+  })
   return { baseUrl, token, stop }
 }

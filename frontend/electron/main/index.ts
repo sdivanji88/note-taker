@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { startBackend, type RunningBackend } from './backend'
@@ -44,12 +44,18 @@ function createWindow(): void {
 }
 
 async function boot(): Promise<void> {
+  // The app needs no camera, mic, geolocation, notifications etc.; deny them all, so
+  // even a compromised renderer cannot obtain them.
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+  session.defaultSession.setPermissionCheckHandler(() => false)
   try {
     backend = await startBackend({
       backendDir: process.env.NOTE_TAKER_BACKEND_DIR ?? resolve(__dirname, '../../../backend'),
       dataDir: process.env.NOTE_TAKER_DATA_DIR ?? app.getPath('userData')
     })
   } catch (err) {
+    // Also to the terminal: the dialog text is gone once dismissed.
+    console.error('note-taker: backend failed to start:', (err as Error).message)
     dialog.showErrorBox('Note Taker could not start its backend', (err as Error).message)
     app.quit()
     return

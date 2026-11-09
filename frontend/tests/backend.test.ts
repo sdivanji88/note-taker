@@ -248,3 +248,37 @@ describe('spawn failure', () => {
     expect(child.signals).toEqual(['SIGTERM'])
   })
 })
+
+describe('logging', () => {
+  it('forwards backend stderr to the terminal and still keeps it for errors', async () => {
+    const write = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      const child = new FakeChild()
+      const { spawn, deps } = setup(child, vi.fn().mockRejectedValue(new Error('refused')), { timeoutMs: 60_000 })
+      const p = startBackend(opts, deps)
+      await vi.waitFor(() => expect(spawn).toHaveBeenCalled())
+      const chunk = Buffer.from('INFO note_taker: started\n')
+      child.stderr.emit('data', chunk)
+      expect(write).toHaveBeenCalledWith(chunk)
+      child.die(1)
+      await expect(p).rejects.toThrow(/INFO note_taker: started/)
+    } finally {
+      write.mockRestore()
+    }
+  })
+
+  it('logs the exit code or signal when the backend exits after startup, without the token', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const child = new FakeChild()
+      const { deps } = setup(child, vi.fn().mockResolvedValue(ok()))
+      const b = await startBackend(opts, deps)
+      child.die(null, 'SIGSEGV')
+      const logged = error.mock.calls.map((c) => c.join(' ')).join('\n')
+      expect(logged).toMatch(/backend exited.*SIGSEGV/)
+      expect(logged).not.toContain(b.token)
+    } finally {
+      error.mockRestore()
+    }
+  })
+})
