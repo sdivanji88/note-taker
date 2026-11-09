@@ -59,7 +59,9 @@ class GitPublisher:
         # not block a push; only files that could collide with ours matter.
         if self._run("status", "--porcelain", "--untracked-files=no").stdout.strip():
             return True
-        out = self._run("status", "--porcelain", "--", books_dir).stdout
+        # Explicit =all: a user config of showUntrackedFiles=no would hide the very
+        # files rollback could otherwise delete.
+        out = self._run("status", "--porcelain", "--untracked-files=all", "--", books_dir).stdout
         return any(line.startswith("??") for line in out.splitlines())
 
     def head(self) -> str:
@@ -92,17 +94,50 @@ class GitPublisher:
         self.pull_rebase()
         self._run("push", "origin", refspec)
 
+    def _repo_relative(self, path: Path) -> str:
+        """Repo-relative posix path, or ValueError if it escapes the repo.
+
+        Resolves symlinks on the parent (not the final component) so legitimate
+        paths survive macOS /var -> /private/var and a symlinked leaf is never
+        followed out of the repo by a later unlink.
+        """
+        root = self.repo_dir.resolve()
+        p = Path(path)
+        abs_path = p if p.is_absolute() else root / p
+        resolved = abs_path.parent.resolve() / abs_path.name
+        try:
+            rel = resolved.relative_to(root)
+        except ValueError:
+            raise ValueError(f"path outside repo: {path}") from None
+        if rel == Path(".") or (resolved.is_dir() and not resolved.is_symlink()):
+            raise ValueError(f"not a file path: {path}")
+        return rel.as_posix()
+
+    def _exists_at(self, rev: str, rel: str) -> bool:
+        # ls-tree exits 0 with empty output for an absent path, so a non-zero exit
+        # is a real git error and must not be mistaken for "did not exist".
+        r = self._run("ls-tree", "--name-only", rev, "--", rel)
+        return bool(r.stdout.strip())
+
     def rollback(self, pre_head: str, touched: list[Path]) -> None:
         # Mixed reset (never --hard) drops only our commit and keeps the working
-        # tree, so unrelated user files survive; then we fix up just our paths.
+        # tree, so unrelated user files survive. A rebase may have pulled other
+        # people's changes into the tree; those paths differ between pre_head and
+        # HEAD (and are clean by the dirty-tree precondition), so they are restored
+        # too. Everything is validated and planned before the first mutation.
+        rels = {self._repo_relative(p) for p in touched}
+        diff = self._run("diff", "--name-only", "--no-renames", "-z", pre_head, "HEAD")
+        rels.update(name for name in diff.stdout.split("\0") if name)
+        plan = {rel: self._exists_at(pre_head, rel) for rel in sorted(rels)}
+
         self._run("reset", "--mixed", pre_head)
-        for path in touched:
-            rel = self._rel(path)
-            existed = self._run("cat-file", "-e", f"{pre_head}:{rel}", check=False).returncode == 0
+        for rel, existed in plan.items():
             if existed:
                 self._run("checkout", pre_head, "--", rel)
             else:
-                (self.repo_dir / rel).unlink(missing_ok=True)
+                target = self.repo_dir / rel
+                if target.is_file() or target.is_symlink():
+                    target.unlink()
 
     def remote_file(self, rel_path: str) -> str | None:
         r = self._run("show", f"origin/{self.branch}:{rel_path}", check=False)

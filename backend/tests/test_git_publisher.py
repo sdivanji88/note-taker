@@ -143,3 +143,81 @@ def test_remote_file_after_fetch(tmp_path, bare_remote, pub):
     git(other, "push", "origin", "main")
     pub.fetch()
     assert pub.remote_file("books/z.md") == "zed\n"
+
+
+def test_rollback_after_rebase_leaves_clone_clean(tmp_path, bare_remote, pub):
+    # Simulates push rejected -> pull_rebase ok -> retry failed -> caller rolls back.
+    repo = pub.repo_dir
+    pre = pub.head()
+    other = tmp_path / "other"
+    subprocess.run(
+        ["git", "clone", str(bare_remote), str(other)], check=True, capture_output=True
+    )
+    (other / "README.md").write_text("remote edit\n")
+    (other / "books").mkdir()
+    (other / "books" / "theirs.md").write_text("theirs\n")
+    git(other, "add", ".")
+    git(other, "commit", "-m", "other")
+    git(other, "push", "origin", "main")
+
+    mine = repo / "books" / "mine.md"
+    mine.parent.mkdir()
+    mine.write_text("mine\n")
+    pub.commit([mine], "ours")
+    pub.pull_rebase()
+    unrelated = repo / "scratch.txt"
+    unrelated.write_text("keep")
+
+    pub.rollback(pre, [mine])
+
+    assert pub.head() == pre
+    assert not pub.is_dirty("books")
+    assert git(repo, "status", "--porcelain") == "?? scratch.txt"
+    assert (repo / "README.md").read_text() == "# notes\n"
+    assert not (repo / "books" / "theirs.md").exists()
+    assert unrelated.read_text() == "keep"
+
+
+@pytest.mark.parametrize("kind", ["dotdot", "absolute", "directory"])
+def test_rollback_rejects_unsafe_paths_before_mutating(tmp_path, pub, kind):
+    repo = pub.repo_dir
+    victim = tmp_path / "victim.txt"
+    victim.write_text("precious")
+    pre = pub.head()
+    (repo / "a.md").write_text("a")
+    pub.commit([repo / "a.md"], "ours")
+    head_before = pub.head()
+    bad = {
+        "dotdot": repo / ".." / "victim.txt",
+        "absolute": victim,
+        "directory": repo / "books",
+    }[kind]
+    (repo / "books").mkdir()
+    with pytest.raises(ValueError):
+        pub.rollback(pre, [repo / "a.md", bad])
+    assert victim.read_text() == "precious"
+    assert pub.head() == head_before
+    assert (repo / "a.md").exists()
+
+
+def test_rollback_relative_dotdot_rejected(tmp_path, pub):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("precious")
+    with pytest.raises(ValueError):
+        pub.rollback(pub.head(), [Path("../victim.txt")])
+    assert victim.read_text() == "precious"
+
+
+def test_rollback_bad_pre_head_raises_git_error_without_mutating(pub):
+    f = pub.repo_dir / "a.md"
+    f.write_text("a")
+    with pytest.raises(GitError):
+        pub.rollback("0" * 40, [f])
+    assert f.read_text() == "a"
+
+
+def test_is_dirty_sees_untracked_books_despite_user_config(pub):
+    git(pub.repo_dir, "config", "status.showUntrackedFiles", "no")
+    (pub.repo_dir / "books").mkdir()
+    (pub.repo_dir / "books" / "x.md").write_text("x")
+    assert pub.is_dirty("books")
