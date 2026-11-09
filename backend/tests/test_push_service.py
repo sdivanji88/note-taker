@@ -309,6 +309,88 @@ def test_concurrent_capture_edit_during_push_is_kept(env):
     assert after.captures[1].status == CaptureStatus.ready
 
 
+def _edit_mid_push(env, batch_id, index, change):
+    def hook():
+        cap = env.store.get(batch_id).captures[index]
+        change(cap)
+        env.store.update_capture(batch_id, cap)
+
+    env.events.hooks["committing"] = hook
+
+
+def test_highlight_added_mid_push_keeps_capture_approved(env):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved",))
+    _edit_mid_push(env, batch.id, 0, lambda c: c.highlights.append(Highlight(text="late add")))
+
+    env.svc.push(batch.id)
+
+    after = env.store.get(batch.id)  # not deleted: the capture isn't finished
+    assert after.captures[0].status == CaptureStatus.approved
+    assert "late add" not in remote_text(env)
+    # The next push appends only the new highlight; the first is not duplicated.
+    assert env.svc.push(batch.id).highlights_written == 1
+    for m in markers(after):
+        assert remote_text(env).count(m) == 1
+
+
+def test_highlight_text_edited_mid_push_keeps_capture_approved(env):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved",))
+
+    def edit(c):
+        c.highlights[0].text = "corrected text"
+
+    _edit_mid_push(env, batch.id, 0, edit)
+    env.svc.push(batch.id)
+
+    after = env.store.get(batch.id)
+    assert after.captures[0].status == CaptureStatus.approved
+    assert after.captures[0].highlights[0].text == "corrected text"
+
+
+def test_page_changed_mid_push_keeps_capture_approved(env):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved",))
+
+    def edit(c):
+        c.page = 99
+
+    _edit_mid_push(env, batch.id, 0, edit)
+    env.svc.push(batch.id)
+
+    after = env.store.get(batch.id)
+    assert after.captures[0].status == CaptureStatus.approved
+    assert after.captures[0].page == 99
+
+
+def test_capture_discarded_mid_push_stays_discarded(env):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved", "approved", "ready"))
+
+    def discard(c):
+        c.status = CaptureStatus.discarded
+
+    _edit_mid_push(env, batch.id, 1, discard)
+    env.svc.push(batch.id)
+
+    after = env.store.get(batch.id)
+    assert [c.status for c in after.captures] == [
+        CaptureStatus.pushed, CaptureStatus.discarded, CaptureStatus.ready
+    ]
+
+
+def test_unchanged_capture_resaved_mid_push_is_pushed_and_batch_deleted(env):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved", "discarded"))
+    _edit_mid_push(env, batch.id, 0, lambda c: None)  # a save that changes nothing
+
+    res = env.svc.push(batch.id)
+
+    assert res.batch_deleted is True
+    assert not env.paths.batch_dir(batch.id).exists()
+
+
 def test_retry_after_partial_success_does_not_duplicate(env):
     env.books.create("Dune", None, Kind.fiction)
     batch = add_batch(env, "dune", ("approved", "approved"))

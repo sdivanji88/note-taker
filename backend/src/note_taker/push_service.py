@@ -42,6 +42,18 @@ def _detail(exc: BaseException) -> str:
     return exc.stderr.strip() if isinstance(exc, GitError) else str(exc)
 
 
+def _section_key(capture: Capture, batch: Batch) -> tuple:
+    # Everything that determines the markdown sections written for a capture
+    # (and the file they go to); if any of it changes, the repo copy is stale.
+    return (
+        tuple((h.id, h.text, h.note) for h in capture.highlights),
+        capture.page,
+        capture.chapter,
+        capture.captured_at,
+        capture.book_slug or batch.default_book_slug,
+    )
+
+
 def _set_status(status: BatchStatus) -> Callable[[Batch], None]:
     def change(batch: Batch) -> None:
         batch.status = status
@@ -98,13 +110,18 @@ class PushService:
                 self._progress(batch_id, "failed", code=code)
                 raise
 
-            pushed_ids = {c.id for c in approved}
+            written_as = {c.id: _section_key(c, batch) for c in approved}
 
             def finish(b: Batch) -> None:
-                # Only the captures this push wrote; anything else in the batch may have
-                # been edited by the user meanwhile and is left exactly as it is on disk.
+                # Inside the store lock, so comparison and status write are atomic. A capture
+                # the user edited, discarded or removed since we read it is not what we wrote:
+                # it stays as it is on disk, and a later push appends any new highlight ids
+                # (markers keep the already-written ones from being duplicated).
                 for c in b.captures:
-                    if c.id in pushed_ids:
+                    if (
+                        c.status == CaptureStatus.approved
+                        and written_as.get(c.id) == _section_key(c, b)
+                    ):
                         c.status = CaptureStatus.pushed
                 b.status = BatchStatus.open
 
