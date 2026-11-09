@@ -111,4 +111,27 @@ describe('BatchList', () => {
     await waitFor(() => expect(screen.getAllByText(evil)).toHaveLength(2))
     expect(container.querySelector('img')).toBeNull()
   })
+
+  it('shows batches even when books and health never answer', async () => {
+    const { client } = fakeClient({
+      listBatches: vi.fn().mockResolvedValue([summary('a')]),
+      listBooks: vi.fn(() => new Promise(() => {})),
+      getHealth: vi.fn(() => new Promise(() => {}))
+    })
+    list(client)
+    expect(await screen.findByRole('button', { name: /resume/i })).toBeInTheDocument()
+  })
+
+  it('shows batches and separate non-blocking notices when books and health fail', async () => {
+    const { client } = fakeClient({
+      listBatches: vi.fn().mockResolvedValue([summary('a')]),
+      listBooks: vi.fn().mockRejectedValue(new ApiError(0, 'network_error', 'books down')),
+      getHealth: vi.fn().mockRejectedValue(new ApiError(0, 'network_error', 'health down'))
+    })
+    list(client)
+    expect(await screen.findByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(await screen.findByText(/could not load books: books down/i)).toBeInTheDocument()
+    expect(await screen.findByText(/could not check the notes repo: health down/i)).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
 })

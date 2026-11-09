@@ -61,7 +61,7 @@ describe('pickFreePort', () => {
 })
 
 describe('startBackend', () => {
-  it('spawns uv with the token only in the environment and resolves once /health answers', async () => {
+  it('spawns uv with the token only in the environment and resolves once /ping answers', async () => {
     const child = new FakeChild()
     const fetchMock = vi.fn().mockRejectedValueOnce(new Error('refused')).mockResolvedValue(ok())
     const { spawn, deps } = setup(child, fetchMock)
@@ -84,11 +84,11 @@ describe('startBackend', () => {
     const port = Number(args[args.indexOf('--port') + 1])
     expect(b.baseUrl).toBe(`http://127.0.0.1:${port}`)
     const [url, init] = fetchMock.mock.calls[1]
-    expect(url).toBe(`${b.baseUrl}/health`)
+    expect(url).toBe(`${b.baseUrl}/ping`)
     expect(new Headers(init.headers).get('X-Session-Token')).toBe(b.token)
   })
 
-  it('rejects with the captured stderr when /health never answers', async () => {
+  it('rejects with the captured stderr when /ping never answers', async () => {
     const child = new FakeChild('SIGTERM')
     const { spawn, deps } = setup(child, vi.fn().mockRejectedValue(new Error('refused')), { timeoutMs: 300 })
     const p = startBackend(opts, deps)

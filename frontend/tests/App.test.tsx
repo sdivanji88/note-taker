@@ -38,8 +38,8 @@ describe('Root', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('ipc failed')
   })
 
-  it('shows an error when the backend health check fails, without the token', async () => {
-    const { client } = fakeClient({ getHealth: vi.fn().mockRejectedValue(new Error('could not reach the Note Taker backend')) })
+  it('shows an error when the backend does not answer the ping, without the token', async () => {
+    const { client } = fakeClient({ ping: vi.fn().mockRejectedValue(new Error('could not reach the Note Taker backend')) })
     render(<Root getConfig={async () => ({ baseUrl: 'http://127.0.0.1:1', token: 'sekrit' })} makeClient={() => client} />)
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('could not reach the Note Taker backend')
@@ -50,5 +50,14 @@ describe('Root', () => {
     const { client } = fakeClient()
     render(<Root getConfig={async () => ({ baseUrl: 'http://127.0.0.1:1', token: 't' })} makeClient={() => client} />)
     await waitFor(() => expect(screen.getByRole('button', { name: /new batch/i })).toBeInTheDocument())
+  })
+
+  it('renders the batch list even when the health check never answers', async () => {
+    const { client } = fakeClient({
+      getHealth: vi.fn(() => new Promise(() => {})),
+      listBatches: vi.fn().mockResolvedValue([summary('b1')])
+    })
+    render(<Root getConfig={async () => ({ baseUrl: 'http://127.0.0.1:1', token: 't' })} makeClient={() => client} />)
+    expect(await screen.findByRole('button', { name: /resume/i })).toBeInTheDocument()
   })
 })

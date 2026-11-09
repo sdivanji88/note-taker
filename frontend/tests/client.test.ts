@@ -37,6 +37,14 @@ describe('createClient', () => {
     expect(err).toMatchObject({ status: 409, code: 'dirty_repo', message: 'repo has local changes' })
   })
 
+  it('ping probes the cheap readiness route with the token', async () => {
+    fetchMock.mockResolvedValue(reply(200, { ok: true }))
+    expect(await createClient(cfg).ping()).toEqual({ ok: true })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://127.0.0.1:9999/ping')
+    expect(new Headers(init.headers).get('X-Session-Token')).toBe('sekrit-token')
+  })
+
   it('imageUrl includes token query', () => {
     const url = new URL(createClient(cfg).imageUrl('c1'))
     expect(url.pathname).toBe('/captures/c1/image')

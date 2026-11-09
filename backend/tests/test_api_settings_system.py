@@ -139,3 +139,13 @@ def test_janitor_run_endpoint(client):
     r = client.post("/janitor/run", headers=H)
     assert r.status_code == 200
     assert r.json() == {"warned": [], "deleted": []}
+
+
+def test_ping_answers_with_token(client):
+    r = client.get("/ping", headers=H)
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}
+
+
+def test_ping_requires_token(client):
+    assert client.get("/ping").status_code == 401

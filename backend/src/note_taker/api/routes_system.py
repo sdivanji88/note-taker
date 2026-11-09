@@ -51,6 +51,13 @@ def _remote_health(svc: Services) -> dict:
     return {"ok": True, "detail": "ok"}
 
 
+@router.get("/ping")
+def ping() -> dict:
+    # Readiness probe for startup: no git, no extractor, so a slow remote can
+    # never make the app look dead. /health is the (slower) diagnostic view.
+    return {"ok": True}
+
+
 @router.get("/health")
 def health(svc: Svc) -> dict:
     return {"extractor": _extractor_health(svc), "repo": _repo_health(svc), "remote": _remote_health(svc)}

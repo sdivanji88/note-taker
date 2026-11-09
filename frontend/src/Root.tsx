@@ -24,7 +24,8 @@ export default function Root({
     ;(async () => {
       try {
         const c = makeClient(await getConfig())
-        await c.getHealth()
+        // ping, not getHealth: health checks the git remote, which may be slow or down.
+        await c.ping()
         if (!cancelled) setClient(c)
       } catch (e) {
         // ApiError messages are already token-free; the config itself is never printed.

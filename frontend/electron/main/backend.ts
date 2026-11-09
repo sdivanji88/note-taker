@@ -124,7 +124,7 @@ export async function startBackend(
     return stopping
   }
 
-  // Resolves when /health answers; rejects on child exit (immediately) or the deadline.
+  // Resolves when /ping answers; rejects on child exit (immediately) or the deadline.
   const earlyExit = new Promise<never>((_, reject) => {
     child.once('exit', (code, signal) => {
       reject(new Error(`backend exited with code ${code ?? signal} during startup:\n${stderr}`))
@@ -149,7 +149,9 @@ export async function startBackend(
     const deadline = Date.now() + timeoutMs
     while (Date.now() < deadline && !exited) {
       try {
-        const res = await doFetch(`${baseUrl}/health`, {
+        // /ping, not /health: health runs git ls-remote, which can take longer than
+        // the probe timeout (or hang) with a slow or unreachable remote.
+        const res = await doFetch(`${baseUrl}/ping`, {
           headers: { 'X-Session-Token': token },
           signal: AbortSignal.timeout(Math.max(pollMs, 1_000))
         })

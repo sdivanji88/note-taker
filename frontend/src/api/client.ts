@@ -76,6 +76,8 @@ export function createClient(cfg: BackendConfig) {
   const enc = encodeURIComponent
 
   return {
+    // Readiness only (no git/extractor I/O); getHealth is the slow diagnostic view.
+    ping: () => request<{ ok: boolean }>('GET', '/ping'),
     getHealth: () => request<Health>('GET', '/health'),
     getSettings: () => request<Settings>('GET', '/settings'),
     putSettings: (s: Settings) => request<Settings>('PUT', '/settings', { json: s }),

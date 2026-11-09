@@ -68,6 +68,7 @@ export function fakeClient(overrides: Record<string, unknown> = {}) {
   let listener: ((e: BatchEvent) => void) | null = null
   const unsubscribe = vi.fn()
   const client = {
+    ping: vi.fn().mockResolvedValue({ ok: true }),
     getHealth: vi.fn().mockResolvedValue({
       extractor: { kind: 'tesseract', ok: true, detail: '' },
       repo: { cloned: true, dirty: false, path: '/x' },

@@ -16,14 +16,29 @@ export default function BatchList({ onOpenBatch, onSettings }: Props) {
   const [books, setBooks] = useState<Book[]>([])
   const [health, setHealth] = useState<Health | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [booksError, setBooksError] = useState<string | null>(null)
+  const [healthError, setHealthError] = useState<string | null>(null)
   const [discarding, setDiscarding] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
+    // Settled independently: listBooks syncs with the remote and getHealth probes it,
+    // so either can be slow or fail, and neither may hide the local batch list.
+    void api.listBooks().then(
+      (bk) => {
+        setBooks(bk)
+        setBooksError(null)
+      },
+      (e) => setBooksError(errorMessage(e))
+    )
+    void api.getHealth().then(
+      (h) => {
+        setHealth(h)
+        setHealthError(null)
+      },
+      (e) => setHealthError(errorMessage(e))
+    )
     try {
-      const [b, bk, h] = await Promise.all([api.listBatches(), api.listBooks(), api.getHealth()])
-      setBatches(b)
-      setBooks(bk)
-      setHealth(h)
+      setBatches(await api.listBatches())
     } catch (e) {
       setError(errorMessage(e))
     }
@@ -70,6 +85,10 @@ export default function BatchList({ onOpenBatch, onSettings }: Props) {
           Your notes repo is not connected.{' '}
           <button className="link" onClick={onSettings}>Open Settings</button>
         </div>
+      )}
+      {booksError && <p role="status" className="banner warn">Could not load books: {booksError}</p>}
+      {healthError && (
+        <p role="status" className="banner warn">Could not check the notes repo: {healthError}</p>
       )}
       {batches && <ExpiryBanner batches={batches} />}
       {error && <p role="alert" className="error">{error}</p>}
