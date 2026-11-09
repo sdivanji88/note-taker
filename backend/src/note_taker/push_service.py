@@ -125,11 +125,10 @@ class PushService:
                         c.status = CaptureStatus.pushed
                 b.status = BatchStatus.open
 
-            batch = self._store.modify(batch_id, finish, touch=True)
+            self._store.modify(batch_id, finish, touch=True)
             self._books.prune_pending()
-            deleted = batch.is_finished()
-            if deleted:
-                self._store.delete(batch_id)
+            # Re-checked under the store lock: an upload may land after finish().
+            deleted = self._store.delete_if(batch_id, lambda b: b.is_finished())
             self._progress(batch_id, "done")
             log.info(
                 "push done batch=%s commit=%s highlights=%d files=%d deleted=%s",
@@ -289,10 +288,8 @@ class PushService:
             b.status = BatchStatus.open
 
         # touch=False: recovery is background work and must not extend expiry.
-        batch = self._store.modify(batch_id, change, touch=False)
-        deleted = batch.is_finished()
-        if deleted:
-            self._store.delete(batch_id)
+        self._store.modify(batch_id, change, touch=False)
+        deleted = self._store.delete_if(batch_id, lambda b: b.is_finished())
         log.info(
             "recovered batch=%s pushed=%d deleted=%s", batch_id, len(landed), deleted
         )

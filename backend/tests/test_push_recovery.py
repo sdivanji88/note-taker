@@ -183,3 +183,42 @@ def test_concurrent_pushes_serialize(env):
         assert text.count(m) == 1
     assert text.count("title: Dune") == 1
     assert git(env.remote, "rev-list", "--count", "main") == "3"
+
+
+def _add_capture_after_modify(env, batch_id, when):
+    """Simulate an upload landing between a modify and the finished-batch check."""
+    real_modify = env.store.modify
+
+    def modify(bid, change, touch=True):
+        result = real_modify(bid, change, touch=touch)
+        if when(touch):
+            env.store.add_kindle(batch_id, [Highlight(text="late upload")], None, 9, None, None)
+        return result
+
+    env.store.modify = modify
+
+
+def test_capture_added_after_push_finish_keeps_batch(env):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved",))
+    _add_capture_after_modify(env, batch.id, when=lambda touch: touch)  # the finish modify
+
+    res = env.svc.push(batch.id)
+
+    assert res.batch_deleted is False
+    after = env.store.get(batch.id)
+    assert [c.status for c in after.captures] == [CaptureStatus.pushed, CaptureStatus.ready]
+
+
+def test_capture_added_after_recover_reopen_keeps_batch(env):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune", ("approved", "discarded"))
+    snapshot = env.store.get(batch.id)
+    env.svc.push(batch.id)
+    _mark_pushing(env, snapshot)
+    _add_capture_after_modify(env, batch.id, when=lambda touch: not touch)
+
+    env.svc.recover()
+
+    after = env.store.get(batch.id)
+    assert after.captures[-1].highlights[0].text == "late upload"
