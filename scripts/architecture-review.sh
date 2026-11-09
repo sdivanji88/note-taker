@@ -34,7 +34,7 @@ SOURCE_FILES=$(find . -type f \
      -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.rb" -o -name "*.kt" \) \
   -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/vendor/*" \
   -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/.venv/*" \
-  -not -path "*/target/*" -not -path "*/__pycache__/*" 2>/dev/null)
+  -not -path "*/target/*" -not -path "*/__pycache__/*" -not -path "*/out/*" 2>/dev/null)
 
 # 1a. Files exceeding LOC threshold
 echo "### Files exceeding $MAX_FILE_LOC LOC" >> "$REPORT_FILE"
