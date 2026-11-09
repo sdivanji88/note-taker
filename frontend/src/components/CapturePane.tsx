@@ -61,6 +61,9 @@ export default function CapturePane(props: Props) {
   const unfinished = status === 'pending' || status === 'extracting'
   const isPushingNow = props.batchPushing || pushHeld
   const readOnly = unfinished || isPushingNow
+  // Pending with an error = waiting on an unavailable extractor; the backend allows a
+  // retry (possibly with the other extractor) from there, just as from failed.
+  const waiting = status === 'pending' && !!capture.error
   const isGoneNow = gone || (save.kind === 'error' && save.gone)
   const pageOk = pageIsValid(draft)
 
@@ -197,7 +200,14 @@ export default function CapturePane(props: Props) {
       </header>
 
       {problem && <p role="alert" className="error">{problem}</p>}
-      {unfinished && <p className="banner">Still extracting… you can edit once it&apos;s ready.</p>}
+      {waiting ? (
+        <p className="banner warn">
+          Waiting for the extractor: {capture.error}. Change it in Settings, or retry with the other extractor.
+        </p>
+      ) : (
+        unfinished && <p className="banner">Still extracting… you can edit once it&apos;s ready.</p>
+      )}
+      {status === 'failed' && capture.error && <p className="banner warn">Extraction failed: {capture.error}</p>}
       {isPushingNow && !unfinished && (
         <p className="banner warn">A push is running for this batch; editing is paused until it finishes.</p>
       )}
@@ -261,6 +271,8 @@ export default function CapturePane(props: Props) {
         busy={busy}
         readOnly={readOnly}
         canDiscard={!isPushingNow}
+        canRetry={status === 'failed' || waiting}
+        retryDisabled={isPushingNow}
         extractor={retryKind}
         onPrev={props.onPrev}
         onNext={props.onNext}

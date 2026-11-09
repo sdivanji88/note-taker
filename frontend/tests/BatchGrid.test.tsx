@@ -16,7 +16,11 @@ describe('BatchGrid', () => {
     const statuses: CaptureStatus[] = ['pending', 'extracting', 'ready', 'failed', 'approved', 'discarded', 'pushed']
     const { client } = fakeClient({
       getBatch: vi.fn().mockResolvedValue(
-        batch(statuses.map((s) => capture(s, s, { error: s === 'failed' ? 'ollama timed out' : null })))
+        batch(
+          statuses.map((s) =>
+            capture(s, s, { error: s === 'failed' ? 'ollama timed out' : s === 'pending' ? 'ollama is not running' : null })
+          )
+        )
       )
     })
     grid(client)
@@ -27,6 +31,7 @@ describe('BatchGrid', () => {
     expect(screen.queryByTestId('thumb-pushed')).toBeNull()
     expect(screen.getByTestId('thumb-discarded')).toHaveClass('faded')
     expect(within(screen.getByTestId('thumb-failed')).getByTitle('ollama timed out')).toBeInTheDocument()
+    expect(within(screen.getByTestId('thumb-pending')).getByTitle('ollama is not running')).toBeInTheDocument()
   })
 
   it('uploading files calls uploadPhotos and shows rejected reasons', async () => {

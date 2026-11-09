@@ -23,6 +23,7 @@ export function setup(caps: Capture[], over: Record<string, unknown> = {}, batch
   const retryCapture = vi.fn(async (id: string) => {
     const c = live.find((x) => x.id === id)!
     c.status = 'pending'
+    c.error = null // as the backend does on retry
     return { ...c }
   })
   const getBatch = vi.fn(async () => batch(live.map((c) => ({ ...c })), batchExtra))

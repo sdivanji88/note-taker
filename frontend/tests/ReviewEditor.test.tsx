@@ -60,6 +60,39 @@ describe('ReviewEditor read-only states', () => {
     expect(screen.getByRole('button', { name: 'Discard' })).toBeEnabled()
   })
 
+  it('a pending capture with an extractor error explains it and offers Retry', async () => {
+    const s = setup([capture('c1', 'pending', { image_file: 'c1.jpg', error: 'ollama is not running' })])
+    s.start()
+    await settle()
+    expect(
+      screen.getByText(
+        'Waiting for the extractor: ollama is not running. Change it in Settings, or retry with the other extractor.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Still extracting/)).toBeNull()
+    expect(screen.getByLabelText('Chapter')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
+    expect(screen.getByLabelText('Extractor')).toBeEnabled()
+    fireEvent.change(screen.getByLabelText('Extractor'), { target: { value: 'ollama' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await settle()
+    expect(s.retryCapture).toHaveBeenCalledWith('c1', 'ollama')
+  })
+
+  it('a pending capture without an error offers no Retry', async () => {
+    const s = setup([capture('c1', 'pending', { image_file: 'c1.jpg' })])
+    s.start()
+    await settle()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  })
+
+  it('a failed capture shows its error on the page, not only in a tooltip', async () => {
+    const s = setup([capture('f1', 'failed', { error: 'tesseract found no highlights' })])
+    s.start()
+    await settle()
+    expect(screen.getByText(/tesseract found no highlights/)).toBeVisible()
+  })
+
   it('is read-only while the batch is pushing', async () => {
     const s = setup([ready()], {}, { status: 'pushing' })
     s.start()

@@ -56,7 +56,9 @@ export default function Thumb({ capture, imageUrl, position, selected, disabled,
       </button>
       <span
         className={`badge badge-${capture.status}`}
-        title={capture.status === 'failed' && capture.error ? capture.error : undefined}
+        // A pending capture carries an error when its extractor is unavailable (it waits
+        // rather than fails), and the user needs to know why nothing is happening.
+        title={(capture.status === 'failed' || capture.status === 'pending') && capture.error ? capture.error : undefined}
       >
         <span aria-hidden="true" className={capture.status === 'extracting' ? 'spin' : undefined}>
           {BADGE[capture.status]}
