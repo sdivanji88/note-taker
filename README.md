@@ -29,10 +29,10 @@ Ollama vision model); nothing leaves your machine except `git push`.
 ## Setup and run
 
 ```bash
-cd backend && uv sync
-cd frontend && npm ci
+(cd backend && uv sync)
+(cd frontend && npm ci)
 ollama pull qwen2.5vl:7b
-cd frontend && npm run dev     # starts the app, which spawns the Python backend
+(cd frontend && npm run dev)     # starts the app, which spawns the Python backend
 ```
 
 `qwen2.5vl:7b` is the default model, but it is a placeholder: it has not been tested against
@@ -86,10 +86,10 @@ Each push is one commit: `notes: <n> highlights from <titles>` with a `Note-Take
 ## Testing
 
 ```bash
-cd backend && uv run pytest -q            # unit + real-git integration tests
-cd backend && uv run pytest -m live       # manual: real Ollama / Tesseract
-cd frontend && npx vitest run             # component tests
-cd frontend && npm run build && npm run test:e2e   # Electron end-to-end
+(cd backend && uv run pytest -q)          # unit + real-git integration tests
+(cd backend && uv run pytest -m live)     # manual: real Ollama / Tesseract
+(cd frontend && npx vitest run)           # component tests
+(cd frontend && npm run build && npm run test:e2e)   # Electron end-to-end
 bash scripts/ui-test.sh                   # vitest + build + e2e
 bash scripts/architecture-review.sh       # architecture gate
 ```
