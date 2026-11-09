@@ -120,6 +120,7 @@ Before merging, run through [clean-state-checklist.md](clean-state-checklist.md)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system structure, modules, data flow
 - [docs/RELIABILITY.md](docs/RELIABILITY.md) — performance targets, scale, observability
 - [docs/architecture-rules.md](docs/architecture-rules.md) — full architecture rules
+- [docs/deferred-findings.md](docs/deferred-findings.md) — known open issues and accepted limitations (read before changing anything)
 - [feature_list.json](feature_list.json) — feature inventory with pass/fail status
 - [session-handoff.md](session-handoff.md) — current session state for next session
 - [claude-progress.md](claude-progress.md) — append-only session log (duration, goals, decisions, benchmarks)

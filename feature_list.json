@@ -3,116 +3,116 @@
   "description": "Note Taker is a local macOS desktop app that turns highlights from books into a personal, git-backed knowledge base. The user photographs yellow-highlighted pages of physical books (or pastes Kindle highlight text), drops a batch of photos into an Electron app, reviews and edits drafts extracted by a configurable OCR (Tesseract) or local vision model (Ollama), and pushes approved highlights as markdown sections appended to one file per book (`books/<slug>.md`) in a GitHub repo they own, so they can recall a book's takeaways and apply them at work.",
   "features": [
     {
-        "id": "backend-scaffold-models",
-        "name": "Backend scaffold, models, paths, settings store",
-        "plan_task": 1,
-        "status": "todo",
-        "evidence": ""
+      "id": "backend-scaffold-models",
+      "name": "Backend scaffold, models, paths, settings store",
+      "plan_task": 1,
+      "status": "pass",
+      "evidence": "Commit 0b26951. backend/tests/test_models.py + test_settings_store.py; models, DataPaths, atomic jsonio, SettingsStore. Review: approved, 0 fix rounds."
     },
     {
-        "id": "batch-store",
-        "name": "JSON-per-batch store with photo dedupe",
-        "plan_task": 2,
-        "status": "todo",
-        "evidence": ""
+      "id": "batch-store",
+      "name": "JSON-per-batch store with photo dedupe",
+      "plan_task": 2,
+      "status": "pass",
+      "evidence": "Commits 33635ce, 16d8f5c. tests/test_batch_store.py (13 at the time). Review found unvalidated batch_id (rmtree of data dir via delete('..')) → ULID validation added; later BatchStore.modify/delete_if/list_readable added by T6/T10."
     },
     {
-        "id": "markdown-writer",
-        "name": "Slugify + append-only markdown writer with markers",
-        "plan_task": 3,
-        "status": "todo",
-        "evidence": ""
+      "id": "markdown-writer",
+      "name": "Slugify + append-only markdown writer with markers",
+      "plan_task": 3,
+      "status": "pass",
+      "evidence": "Commits d0d8759, f83cd09. tests/test_slug.py, test_markdown_writer.py, golden/permutation-city.md. Review found CRLF rewrite/whole-file rewrite → byte-preserving tail append."
     },
     {
-        "id": "book-catalog",
-        "name": "Book catalog: repo scan + global pending books",
-        "plan_task": 4,
-        "status": "todo",
-        "evidence": ""
+      "id": "book-catalog",
+      "name": "Book catalog: repo scan + global pending books",
+      "plan_task": 4,
+      "status": "pass",
+      "evidence": "Commits 619a6e9, a071916. tests/test_books.py (42). Review found corrupt pending_books.json crash, bad-item data loss, list()/get() inconsistency → quarantine + per-item skip + slug-only listing."
     },
     {
-        "id": "git-publisher",
-        "name": "Git publisher with safe rollback (no hard reset)",
-        "plan_task": 5,
-        "status": "todo",
-        "evidence": ""
+      "id": "git-publisher",
+      "name": "Git publisher with safe rollback (no hard reset)",
+      "plan_task": 5,
+      "status": "pass",
+      "evidence": "Commits 17694d0, 1ff6c39; hardened in final wave b082614 (timeouts, no stdin, no token env, literal pathspecs). tests/test_git_publisher.py against a real bare remote. Review (opus) found rollback leaving a dirty clone, deleting outside the repo, and is_dirty missing untracked files → all fixed."
     },
     {
-        "id": "push-service",
-        "name": "Idempotent push service with crash recovery",
-        "plan_task": 6,
-        "status": "todo",
-        "evidence": ""
+      "id": "push-service",
+      "name": "Idempotent push service with crash recovery",
+      "plan_task": 6,
+      "status": "pass",
+      "evidence": "Commits 22b21c1, e765e85; final wave 1c496aa, 333a49e, f27f2ce. tests/test_push_service.py, test_push_recovery.py (real git, concurrent pushes, crash recovery, idempotent markers). Mid-push edit snapshot compare; atomic delete_if; branch/remote guard."
     },
     {
-        "id": "extraction-queue",
-        "name": "Imaging helpers, extractor interface, extraction queue",
-        "plan_task": 7,
-        "status": "todo",
-        "evidence": ""
+      "id": "extraction-queue",
+      "name": "Imaging helpers, extractor interface, extraction queue",
+      "plan_task": 7,
+      "status": "pass",
+      "evidence": "Commits af6233d, d8cd761. tests/test_extraction_*.py, test_imaging.py (rotation, EXIF, outcome gating, per-run claim tokens). The Tesseract-OSD rotation test is SKIPPED here (tesseract not installed)."
     },
     {
-        "id": "ollama-extractor",
-        "name": "Ollama vision extractor",
-        "plan_task": 8,
-        "status": "todo",
-        "evidence": ""
+      "id": "ollama-extractor",
+      "name": "Ollama vision extractor",
+      "plan_task": 8,
+      "status": "partial",
+      "evidence": "Commit 1c52a7e. tests/test_ollama_extractor.py with respx (request body, schema without bbox, timeouts, error mapping). NEVER run against a real Ollama: default model qwen2.5vl:7b and the structured-output schema (nullable unions) are untested; live tests (-m live) are deselected."
     },
     {
-        "id": "tesseract-extractor",
-        "name": "Tesseract highlight-mask extractor",
-        "plan_task": 9,
-        "status": "todo",
-        "evidence": ""
+      "id": "tesseract-extractor",
+      "name": "Tesseract highlight-mask extractor",
+      "plan_task": 9,
+      "status": "partial",
+      "evidence": "Commit 2d5a856. tests/test_tesseract_extractor.py (OpenCV region finding on synthetic images, passage grouping, page-number choice, error mapping via an _ocr seam). NEVER run with the real tesseract binary (not installed): OCR quality and the default yellow HSV range on real photos are unverified; the real-binary test is skipped."
     },
     {
-        "id": "janitor",
-        "name": "Batch expiry janitor (30d default, warning first)",
-        "plan_task": 10,
-        "status": "todo",
-        "evidence": ""
+      "id": "janitor",
+      "name": "Batch expiry janitor (30d default, warning first)",
+      "plan_task": 10,
+      "status": "pass",
+      "evidence": "Commits c23b8d4, 1874c13; final wave 799ff32. tests/test_janitor.py. Review found a stale warned_at from an earlier window could delete a batch without a fresh warning → warning must belong to the current window; janitor now skips batches in `pushing`."
     },
     {
-        "id": "rest-api",
-        "name": "FastAPI REST API, SSE, CLI entrypoint",
-        "plan_task": 11,
-        "status": "todo",
-        "evidence": ""
+      "id": "rest-api",
+      "name": "FastAPI REST API, SSE, CLI entrypoint",
+      "plan_task": 11,
+      "status": "pass",
+      "evidence": "Commits 79e6700, a4bc9c8, e5cab3d; final wave abe5f37, 135b524, 9378fb6. tests/test_api_*.py (token auth, CORS, whitelisted PATCH, upload caps, SSE, settings validation, credential masking). Edits refused while pending/extracting/pushing; /ping readiness probe."
     },
     {
-        "id": "electron-shell",
-        "name": "Electron scaffold, backend lifecycle, typed API client",
-        "plan_task": 12,
-        "status": "todo",
-        "evidence": ""
+      "id": "electron-shell",
+      "name": "Electron scaffold, backend lifecycle, typed API client",
+      "plan_task": 12,
+      "status": "pass",
+      "evidence": "Commits 59fbc88, 45c48fd, 6eda4a6, 7ce1a0c, 3cac79f; final wave cee6c7c. frontend/tests/backend.test.ts, client.test.ts. Hardened window (sandbox, CSP, nav blocks, IPC sender check, permissions denied), token via env only, process-group kill + stdin-EOF parent-death detection, readable missing-uv error. Real window driven in the e2e only for the Kindle path."
     },
     {
-        "id": "batch-screens",
-        "name": "Batch list + batch grid screens",
-        "plan_task": 13,
-        "status": "todo",
-        "evidence": ""
+      "id": "batch-screens",
+      "name": "Batch list + batch grid screens",
+      "plan_task": 13,
+      "status": "pass",
+      "evidence": "Commit f7de19d; final wave ed533ed, abe5f37. frontend/tests/BatchList/BatchGrid/App tests. Real UI driven once with Playwright; extraction spinner and live SSE updates verified only in unit tests."
     },
     {
-        "id": "review-editor",
-        "name": "One-page-at-a-time review editor",
-        "plan_task": 14,
-        "status": "todo",
-        "evidence": ""
+      "id": "review-editor",
+      "name": "One-page-at-a-time review editor",
+      "plan_task": 14,
+      "status": "pass",
+      "evidence": "Commits 47aad29, 53f1791; final wave ed533ed. frontend/tests/ReviewEditor*.test.tsx. Autosave state machine (one in-flight PATCH, queued edits, flush before navigate/approve/back), Leave-without-saving dialog; photo-capture rotate/Retry and keyboard shortcuts not driven in a real window."
     },
     {
-        "id": "settings-screen",
-        "name": "Settings screen + repo connection",
-        "plan_task": 15,
-        "status": "todo",
-        "evidence": ""
+      "id": "settings-screen",
+      "name": "Settings screen + repo connection",
+      "plan_task": 15,
+      "status": "pass",
+      "evidence": "Commits 2e77444; final wave 9378fb6. frontend/tests/Settings.test.tsx (22). Masked-URL round trip, credential notice, Connect repo with git stderr verbatim, unsaved-changes guard; real UI driven once against a real backend."
     },
     {
-        "id": "e2e-readme",
-        "name": "Electron e2e smoke test + README",
-        "plan_task": 16,
-        "status": "todo",
-        "evidence": ""
+      "id": "e2e-readme",
+      "name": "Electron e2e smoke test + README",
+      "plan_task": 16,
+      "status": "pass",
+      "evidence": "Commits c158e40, 457c446, c3dfcab, 3cc9fbd. frontend/e2e/smoke.spec.ts: Kindle path passed 4/4 consecutive runs and again after the final wave; photo-path test SKIPPED (tesseract not installed) and has never run. README.md written; hermetic sandbox env (GIT_*/SSH_* stripped)."
     }
-]
+  ]
 }
