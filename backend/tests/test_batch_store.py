@@ -62,6 +62,26 @@ def test_save_touch_false_keeps_updated_at(data_paths):
     assert store.get(batch.id).updated_at == dt(2026, 11, 5)
 
 
+def test_modify_mutates_fresh_copy_and_respects_touch(data_paths):
+    ticks = iter([dt(2026, 11, 1), dt(2026, 11, 2), dt(2026, 11, 3), dt(2026, 11, 4)])
+    store = BatchStore(data_paths, now=lambda: next(ticks))
+    stale = store.create(None)
+    store.add_kindle(stale.id, [Highlight(text="x")], None, None, None, dt(2026, 11, 1))
+
+    def set_default(b):
+        b.default_book_slug = "dune"
+
+    out = store.modify(stale.id, set_default, touch=False)
+
+    # The capture added after `stale` was read survives: modify re-reads from disk.
+    assert len(out.captures) == 1 and out.default_book_slug == "dune"
+    assert store.get(stale.id) == out
+    assert out.updated_at == dt(2026, 11, 2)  # touch=False keeps add_kindle's stamp
+    assert store.modify(stale.id, set_default).updated_at == dt(2026, 11, 3)
+    with pytest.raises(BatchNotFound):
+        store.modify("nope", set_default)
+
+
 def test_delete_removes_folder(data_paths, make_image):
     store = BatchStore(data_paths)
     batch = store.create(None)

@@ -101,6 +101,14 @@ class BatchStore:
             self._write(batch)
             return batch
 
+    def modify(self, batch_id: str, change: Callable[[Batch], None], touch: bool = True) -> Batch:
+        # Re-read and write under the lock so a long-running caller (a push) that only
+        # owns some fields never overwrites edits made since it last read the batch.
+        with _LOCK:
+            batch = self.get(batch_id)
+            change(batch)
+            return self.save(batch, touch=touch)
+
     def add_photo(self, batch_id: str, filename: str, data: bytes) -> Capture:
         ext = _sniff_extension(data)
         if ext is None:
