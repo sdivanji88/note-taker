@@ -1,0 +1,28 @@
+backend/tests/test_batch_store.py
+  s_3e829881b83b35::t_524ca2e0588acf 147-167
+backend/tests/test_janitor.py
+  s_3e829881b83b35::t_34d0bd04b7a53f 8,138-140
+  s_3e829881b83b35::t_524ca2e0588acf 1-7,9-137,141-188
+backend/src/note_taker/janitor.py
+  s_3e829881b83b35::t_35c3ebd9a6d646 1,4,9,11-14,22-36,44-45,48-88
+  s_3e829881b83b35::t_524ca2e0588acf 2-3,5-8,10,15-21,37-43,46-47
+backend/src/note_taker/batch_store.py
+  s_3e829881b83b35::t_35c3ebd9a6d646 5,20-22,96-112,213-224
+  s_3e829881b83b35::t_04f988a0770123 225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "c23b8d45228a5cb6b8fa44d1666ec33b320a9d97",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
