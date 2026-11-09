@@ -1,0 +1,31 @@
+backend/tests/test_models.py
+  s_3e829881b83b35::t_9faf1db1d974e4 2,20-24
+backend/src/note_taker/models.py
+  s_3e829881b83b35::t_5a6f6695fab704 4,141-154
+  s_3e829881b83b35::t_e7ce317f143feb 155
+frontend/tests/Settings.test.tsx
+  s_3e829881b83b35::t_a2a2aa7a4c44c8 163-175
+backend/tests/test_api_settings_system.py
+  s_3e829881b83b35::t_9faf1db1d974e4 54-63,162-180
+backend/src/note_taker/api/routes_settings.py
+  s_3e829881b83b35::t_5a6f6695fab704 2,21-24,39-41,45-50
+  s_3e829881b83b35::t_f4e53bf6f2891d 51
+frontend/src/screens/settingsForm.ts
+  s_3e829881b83b35::t_a90243c4c11885 41,43-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "9378fb64872bb2d4ab67282e66cfab4166605552",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
