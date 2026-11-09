@@ -26,7 +26,7 @@
 - Fully local: the only network calls are to Ollama (`http://localhost:11434` default) and `git` remotes.
 - Inputs: PNG and JPEG only. Reject other types per file.
 - Backend binds `127.0.0.1` only. Every request must carry the `X-Session-Token` header, or it gets a 401.
-- Local data dir = Electron `app.getPath('userData')` (`~/Library/Application Support/note-taker/`), holding:
+- Local data dir = Electron `app.getPath('userData')` (`~/Library/Application Support/note-taker-frontend/` — Electron derives it from the frontend package name), holding:
   - `settings.json`
   - `pending_books.json`
   - `batches/<id>/batch.json` + `batches/<id>/photos/<capture_id>.<ext>`

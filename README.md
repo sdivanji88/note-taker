@@ -100,13 +100,20 @@ on PATH and is skipped otherwise.
 
 ## Known limitations
 
-1. A highlight whose text is edited after it was already written to the repo is not
-   rewritten on the next push: highlights are recognised by id, so the repo keeps the old text.
-2. A photo uploaded at the instant a push finishes its batch can be deleted along with that batch.
-3. Changes to `extractor.concurrency` and `timeout_s` need an app restart.
-4. The git operations behind `/health` and `/books` have no timeout, so an unreachable remote
-   can make them hang.
-5. OCR and vision accuracy, the highlight detection thresholds and the default model are
-   untested on real photos in this repo's CI (Tesseract and Ollama were not installed where it was built).
-6. macOS only, and dev-mode only (`npm run dev`); there is no packaged app.
-7. No search or tagging inside the app; use the repo (grep, your editor, GitHub).
+1. Pushes are append-only and highlights are recognised by id, so a highlight already in the
+   repo is never rewritten. Through the app its text can no longer change between review and
+   push (edits are refused while a push runs, and the push writes exactly the reviewed text);
+   what remains is a highlight id changed outside the app, or the repo file edited by hand,
+   which the app neither detects nor repairs.
+2. Changes to `extractor.concurrency` and `timeout_s` need an app restart.
+3. OCR and vision accuracy, the highlight detection thresholds and the default model are
+   untested on real photos: Tesseract and Ollama were not installed on the machine where the
+   app was built (there is no CI).
+4. An existing clone must be on the configured branch, with `origin` set to the configured
+   remote URL; otherwise the app refuses to push (and does not pull) until you fix the clone
+   or Settings. The Settings page shows the remote and branch the app will actually use
+   (surrounding whitespace is trimmed and `~` in the clone path is expanded on save).
+5. Backend logs (plain text) appear in the terminal running `npm run dev`; there is no log file.
+6. Run `(cd backend && uv sync)` before the e2e, which starts the real backend.
+7. macOS only, and dev-mode only (`npm run dev`); there is no packaged app.
+8. No search or tagging inside the app; use the repo (grep, your editor, GitHub).

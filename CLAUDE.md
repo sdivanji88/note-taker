@@ -43,8 +43,8 @@ cd frontend && npm run dev   # spawns the backend; or backend alone: cd backend 
 
 - `docs/superpowers/specs/2026-11-08-note-taker-design.md` — the design spec (§12 overrides earlier sections; §13 decision log)
 - `docs/superpowers/plans/2026-11-08-note-taker.md` — 16-task implementation plan (source of truth for file names, interfaces, tests)
-- `backend/src/note_taker/` — models, batch_store, markdown_writer, git_publisher, push_service, extraction_queue, extractors/, janitor, api/ *(created by plan)*
-- `frontend/electron/main/` (backend lifecycle), `frontend/src/screens/` (BatchList, BatchGrid, ReviewEditor, Settings) *(created by plan)*
+- `backend/src/note_taker/` — models, batch_store, markdown_writer, git_publisher, push_service, extraction_queue, extractors/, janitor, api/
+- `frontend/electron/main/` (backend lifecycle), `frontend/src/screens/` (BatchList, BatchGrid, ReviewEditor, Settings)
 
 ## Gotchas
 
@@ -128,7 +128,7 @@ Before merging, run through [clean-state-checklist.md](clean-state-checklist.md)
 
 ## Tech stack & deployment
 
-**Stack:** Backend: Python 3.12, uv, FastAPI/uvicorn, Pydantic v2, httpx, Pillow, OpenCV (headless), pytesseract, PyYAML. Frontend: Electron + React 18 + TypeScript via electron-vite. Extractors: Ollama vision model (local) or Tesseract OCR. Storage: JSON file + photos folder per batch in the Electron userData dir; notes in a git clone pushed to GitHub. No database.
+**Stack:** Backend: Python 3.12, uv, FastAPI/uvicorn, Pydantic v2, httpx, Pillow, OpenCV (headless), pytesseract, PyYAML. Frontend: Electron + React 19 + TypeScript via electron-vite. Extractors: Ollama vision model (local) or Tesseract OCR. Storage: JSON file + photos folder per batch in the Electron userData dir; notes in a git clone pushed to GitHub. No database.
 
 **Deployment:** macOS only, dev-mode run (`npm run dev` in frontend/, which spawns the backend via `uv run`). Backend binds 127.0.0.1 with a per-launch token. Packaging/distribution is out of scope for v1. Prerequisites: Ollama (+ pulled vision model), `brew install tesseract`, uv, Node 20+.
 

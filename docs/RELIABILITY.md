@@ -28,15 +28,20 @@ Specific targets:
 
 ### Structured logging
 
-All services emit JSON log entries with:
+Not JSON: the backend uses plain-text Python stdlib `logging` to stderr
+(`%(asctime)s %(levelname)s %(name)s: %(message)s`, configured in `note_taker/__main__.py`).
+In dev, Electron forwards the backend's stderr to the terminal running `npm run dev` and logs
+the backend's exit code/signal. Log lines carry `batch_id`/`capture_id` where relevant; a
+redacting filter on the handler masks URL credentials and `?token=`; tokens and credentials
+are never logged.
 
-- `timestamp` (ISO 8601 UTC)
-- `level` (DEBUG / INFO / WARN / ERROR)
-- `service` (which module emitted)
-- `message` (human-readable)
-- `data` (structured payload for filtering/aggregation)
+### Timeouts on external calls
 
-Python stdlib `logging` configured in `note_taker/__main__.py`, include `batch_id`/`capture_id`; never log tokens or credentials.
+Every git subprocess has a timeout and never prompts (stdin is `/dev/null`,
+`GIT_TERMINAL_PROMPT=0`): 60s for network commands (fetch, push, clone, ls-remote), 20s for
+local ones. Tighter overrides where the UI waits: the `/health` remote check uses 5s and the
+`GET /books` sync 10s. A timeout surfaces as a git error (push rolls back as for any git
+failure). App startup probes `/ping`, which does no I/O.
 
 ### Metrics
 
