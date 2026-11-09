@@ -1,0 +1,23 @@
+README.md
+  s_3e829881b83b35::t_4be5c24c399d87 2-112
+docs/ARCHITECTURE.md
+  s_3e829881b83b35::t_012258d0fc9a2c 43
+CLAUDE.md
+  s_3e829881b83b35::t_4be5c24c399d87 34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "457c44625209753e6ea180d8e536858645cf8da6",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
