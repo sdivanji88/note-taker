@@ -1137,3 +1137,143 @@ def test_cli_requires_all_args(capsys):
 
     with pytest.raises(SystemExit):
         cli.main(["--port", "8765"])
+
+
+# --- edits while extraction is pending or running -------------------------------
+
+
+class GateExtractor(FakeExtractor):
+    """Holds extract() until released, so a capture sits in `extracting` on demand."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def extract(self, image_path, rotation=0):
+        self.started.set()
+        self.release.wait(5)
+        return super().extract(image_path, rotation)
+
+
+FIELD_EDITS = [
+    {"highlights": [{"text": "typed by hand"}]},
+    {"page": 7},
+    {"book_slug": "dune"},
+    {"chapter": "One"},
+    {"captured_at": "2026-11-08T21:14:00+00:00"},
+    {"rotation": 90},
+    {"status": "approved"},
+]
+
+
+@pytest.mark.parametrize("edit", FIELD_EDITS)
+def test_edits_refused_while_pending(make_app, make_image, edit):
+    client = make_app(extractor=FakeExtractor(healthy=False))
+    client.post("/books", headers=H, json={"title": "Dune", "kind": "fiction"})
+    b = new_batch(client)
+    cid = upload(client, b, make_image("page.png")).json()["created"][0]["id"]
+    before = get_capture(client, b, cid)
+    assert before["status"] == "pending"
+    r = client.patch(f"/captures/{cid}", headers=H, json=edit)
+    assert r.status_code == 409, edit
+    assert error_code(r) == "invalid_transition"
+    after = get_capture(client, b, cid)
+    assert {k: after[k] for k in edit} == {k: before[k] for k in edit}
+
+
+@pytest.mark.parametrize("edit", FIELD_EDITS)
+def test_edits_refused_while_extracting_and_result_lands(make_app, make_image, edit):
+    gate = GateExtractor(result=ExtractionResult(highlights=[ExtractedHighlight(text="from the model")]))
+    client = make_app(extractor=gate)
+    client.post("/books", headers=H, json={"title": "Dune", "kind": "fiction"})
+    b = new_batch(client)
+    cid = upload(client, b, make_image("page.png")).json()["created"][0]["id"]
+    assert gate.started.wait(2)
+    before = wait_status(client, b, cid, "extracting")
+    r = client.patch(f"/captures/{cid}", headers=H, json=edit)
+    assert r.status_code == 409, edit
+    assert error_code(r) == "invalid_transition"
+    after = get_capture(client, b, cid)
+    assert {k: after[k] for k in edit} == {k: before[k] for k in edit}
+    gate.release.set()
+    c = wait_status(client, b, cid, "ready")
+    assert [h["text"] for h in c["highlights"]] == ["from the model"]
+
+
+def test_discard_allowed_while_pending(make_app, make_image):
+    client = make_app(extractor=FakeExtractor(healthy=False))
+    b = new_batch(client)
+    cid = upload(client, b, make_image("page.png")).json()["created"][0]["id"]
+    r = client.patch(f"/captures/{cid}", headers=H, json={"status": "discarded"})
+    assert r.status_code == 200
+    assert r.json()["status"] == "discarded"
+
+
+def test_discard_allowed_while_extracting_and_result_dropped(make_app, make_image):
+    gate = GateExtractor(result=ExtractionResult(highlights=[ExtractedHighlight(text="late")]))
+    client = make_app(extractor=gate)
+    b = new_batch(client)
+    cid = upload(client, b, make_image("page.png")).json()["created"][0]["id"]
+    assert gate.started.wait(2)
+    wait_status(client, b, cid, "extracting")
+    r = client.patch(f"/captures/{cid}", headers=H, json={"status": "discarded"})
+    assert r.status_code == 200
+    gate.release.set()
+    time.sleep(0.3)
+    c = get_capture(client, b, cid)
+    assert c["status"] == "discarded"
+    assert c["highlights"] == []
+
+
+@pytest.mark.parametrize("final", ["ready", "failed"])
+def test_rotation_allowed_on_ready_and_failed(make_app, make_image, final):
+    ex = FakeExtractor(error="boom") if final == "failed" else FakeExtractor()
+    client = make_app(extractor=ex)
+    b = new_batch(client)
+    cid = upload(client, b, make_image("page.png")).json()["created"][0]["id"]
+    wait_status(client, b, cid, final)
+    r = client.patch(f"/captures/{cid}", headers=H, json={"rotation": 180})
+    assert r.status_code == 200
+    assert r.json()["rotation"] == 180
+    # Rotating does not itself re-run extraction; the client retries if it wants that.
+    assert r.json()["status"] == final
+
+
+def test_rotation_refused_on_approved(client):
+    client.post("/books", headers=H, json={"title": "Dune", "kind": "fiction"})
+    b = new_batch(client, default_book_slug="dune")
+    c = kindle(client, b)
+    client.patch(f"/captures/{c['id']}", headers=H, json={"status": "approved"})
+    r = client.patch(f"/captures/{c['id']}", headers=H, json={"rotation": 90})
+    assert r.status_code == 409
+    assert error_code(r) == "invalid_transition"
+
+
+def test_edit_guard_reads_status_atomically_with_the_write(client, monkeypatch):
+    # The route's lookup sees `ready`; extraction claims the capture before the write.
+    # The guard must judge the state it is writing over, not the earlier snapshot.
+    from note_taker.models import CaptureStatus
+
+    svc = client.app.state.services
+    b = new_batch(client)
+    c = kindle(client, b)
+    real_find = svc.store.find_capture
+
+    def find_then_claim(capture_id):
+        found = real_find(capture_id)
+
+        def claim(batch):
+            for cap in batch.captures:
+                if cap.id == capture_id:
+                    cap.status = CaptureStatus.extracting
+
+        svc.store.modify(b, claim, touch=False)
+        return found
+
+    monkeypatch.setattr(svc.store, "find_capture", find_then_claim)
+    r = client.patch(f"/captures/{c['id']}", headers=H, json={"highlights": [{"text": "mine"}]})
+    assert r.status_code == 409
+    assert error_code(r) == "invalid_transition"
+    monkeypatch.undo()
+    assert get_capture(client, b, c["id"])["highlights"][0]["text"] == "a passage"

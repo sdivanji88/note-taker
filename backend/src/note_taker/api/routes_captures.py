@@ -32,7 +32,15 @@ _TRANSITIONS: dict[CaptureStatus, set[CaptureStatus]] = {
     S.ready: {S.approved, S.discarded},
     S.approved: {S.ready},
     S.failed: {S.ready, S.discarded},
+    # The extraction result would overwrite anything typed now, so the only thing a
+    # user may do with an unfinished capture is throw it away.
+    S.pending: {S.discarded},
+    S.extracting: {S.discarded},
 }
+_FIELDS = ("highlights", "book_slug", "page", "chapter", "captured_at", "rotation")
+_UNFINISHED = {S.pending, S.extracting}
+# Rotation is a correction to a finished extraction; it doesn't re-run it (retry does).
+_ROTATABLE = {S.ready, S.failed}
 _RETRYABLE = {S.failed, S.pending}
 
 
@@ -227,8 +235,17 @@ def patch_capture(capture_id: str, body: CapturePatch, svc: Svc) -> dict:
         ensure_not_pushing(b)
         c = _in(b, capture_id)
         previous = c.status
+        # Judged here, on the copy being written under the store lock, so the
+        # extraction worker can't claim or finish the capture between check and write.
         if c.status is S.pushed:
             raise ApiError(409, "invalid_transition", "a pushed capture can no longer be edited")
+        edited = [f for f in _FIELDS if f in fields]
+        if edited and c.status in _UNFINISHED:
+            raise ApiError(
+                409, "invalid_transition", f"cannot edit a {c.status.value} capture; wait for extraction to finish"
+            )
+        if "rotation" in fields and c.status not in _ROTATABLE:
+            raise ApiError(409, "invalid_transition", f"cannot rotate a {c.status.value} capture")
         if body.status is not None and body.status is not c.status:
             if body.status not in _TRANSITIONS.get(c.status, set()):
                 raise ApiError(
