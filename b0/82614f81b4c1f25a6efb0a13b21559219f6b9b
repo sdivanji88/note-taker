@@ -1,0 +1,28 @@
+backend/tests/test_git_hardening.py
+  s_3e829881b83b35::t_ff778bdbdfbbcf 1-6,8,11,14-79,81-89
+  s_3e829881b83b35::t_b203148079a139 80
+  s_3e829881b83b35::t_41c1f953217a47 7,9-10,12-13,90-112
+backend/src/note_taker/git_publisher.py
+  s_3e829881b83b35::t_ff6adcb7eea4ad 1,5-11,27-29,33-47,49-54,56,71,73,78-79,81,99-100,102-103,117,124
+  s_3e829881b83b35::t_8d61fe44908265 48
+backend/src/note_taker/push_service.py
+  s_3e829881b83b35::t_8d61fe44908265 22-23,180-181
+backend/src/note_taker/api/routes_system.py
+  s_3e829881b83b35::t_8d61fe44908265 14-15,47-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "b082614f81b4c1f25a6efb0a13b21559219f6b9b",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
