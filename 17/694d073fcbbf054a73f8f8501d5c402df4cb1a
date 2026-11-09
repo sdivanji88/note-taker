@@ -1,0 +1,23 @@
+backend/tests/conftest.py
+  s_3e829881b83b35::t_3edabd03a77c69 1,66-105
+backend/tests/test_git_publisher.py
+  s_3e829881b83b35::t_3edabd03a77c69 1-145
+backend/src/note_taker/git_publisher.py
+  s_3e829881b83b35::t_6768b9a3821b5b 1-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "17694d073fcbbf054a73f8f8501d5c402df4cb1a",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
