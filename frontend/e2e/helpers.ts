@@ -14,21 +14,26 @@ export interface Sandbox {
   env: Record<string, string>
 }
 
-export function createSandbox(): Sandbox {
-  // realpath: macOS tmpdir is a symlink, and `pgrep -f` matches the resolved path.
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'nt-e2e-')))
-  const dataDir = join(root, 'data')
-  const home = join(root, 'home')
-  const bare = join(root, 'remote.git')
-  mkdirSync(dataDir)
-  mkdirSync(home)
-
-  // Overriding HOME and nulling the config files stops the user's identity, hooks and
-  // credential helpers from leaking in; the author vars give commits a stable identity.
-  const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
-    HOME: home,
-    NOTE_TAKER_DATA_DIR: dataDir,
+// Any inherited GIT_*/SSH_* variable can redirect git at the developer's real repo or
+// credentials (GIT_DIR above all, when the suite runs from a hook or wrapper), so they
+// are all dropped before the hermetic values are applied. PATH, UV_* etc. are kept:
+// uv and node need them.
+export function buildSandboxEnv(
+  base: Record<string, string | undefined>,
+  dirs: { home: string; dataDir: string }
+): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const [k, v] of Object.entries(base)) {
+    if (v === undefined) continue
+    if (/^(GIT_|SSH_|NOTE_TAKER_)/.test(k) || k === 'ELECTRON_RUN_AS_NODE') continue
+    env[k] = v
+  }
+  // Nulling the config files stops the user's identity, hooks and credential helpers
+  // from leaking in; the author vars give commits a stable identity.
+  return {
+    ...env,
+    HOME: dirs.home,
+    NOTE_TAKER_DATA_DIR: dirs.dataDir,
     GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_CONFIG_SYSTEM: '/dev/null',
     GIT_CONFIG_NOSYSTEM: '1',
@@ -38,8 +43,18 @@ export function createSandbox(): Sandbox {
     GIT_COMMITTER_NAME: 'E2E Committer',
     GIT_COMMITTER_EMAIL: 'e2e-committer@example.invalid'
   }
-  // A real data dir must never be inherited from the developer's shell.
-  delete env.NOTE_TAKER_BACKEND_DIR
+}
+
+export function createSandbox(): Sandbox {
+  // realpath: macOS tmpdir is a symlink, and `pgrep -f` matches the resolved path.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'nt-e2e-')))
+  const dataDir = join(root, 'data')
+  const home = join(root, 'home')
+  const bare = join(root, 'remote.git')
+  mkdirSync(dataDir)
+  mkdirSync(home)
+
+  const env = buildSandboxEnv(process.env, { home, dataDir })
 
   const sandbox = { root, dataDir, bare, env }
   git(sandbox, ['init', '--bare', '-b', 'main', bare])
@@ -68,7 +83,7 @@ export function writeSettings(sb: Sandbox, settings: object): void {
 // Backends started by this sandbox are identified by its unique data dir, so another
 // running Note Taker on the developer's machine is never matched or killed.
 function backendPids(sb: Sandbox): string[] {
-  const r = spawnSync('pgrep', ['-f', `note_taker.*--data-dir ${sb.dataDir}`], { encoding: 'utf8' })
+  const r = spawnSync('pgrep', ['-f', `note_taker.*--data-dir ${sb.dataDir}`], { encoding: 'utf8', env: sb.env })
   return r.stdout.split('\n').filter(Boolean)
 }
 
