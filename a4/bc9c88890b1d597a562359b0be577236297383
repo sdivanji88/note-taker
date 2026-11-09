@@ -1,0 +1,21 @@
+backend/src/note_taker/api/routes_captures.py
+  s_3e829881b83b35::t_c5f5639218166c 35-38,40-43,238-239,242-248
+backend/tests/test_api.py
+  s_3e829881b83b35::t_24c23b380e7701 1140-1279
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "a4bc9c88890b1d597a562359b0be577236297383",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
