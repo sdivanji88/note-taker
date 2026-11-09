@@ -1,0 +1,25 @@
+backend/tests/test_extraction_queue.py
+  s_3e829881b83b35::t_21c9186886532b 15,621-631,633
+backend/src/note_taker/extractors/ollama.py
+  s_3e829881b83b35::t_06350b33e5440c 1-116
+backend/tests/test_ollama_extractor.py
+  s_3e829881b83b35::t_21c9186886532b 1-216
+backend/src/note_taker/extractors/factory.py
+  s_3e829881b83b35::t_06350b33e5440c 2,10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1c52a7ed204cbd0332a05f37e3f0fa9b4e30c2d1",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
