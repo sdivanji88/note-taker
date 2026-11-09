@@ -154,3 +154,40 @@ def test_append_empty_items_writes_nothing(tmp_path):
     p = tmp_path / "b.md"
     assert append_highlights(p, BOOK, [], UTC) == []
     assert not p.exists()
+
+
+def _hand_edited(tmp_path, raw: bytes):
+    p = tmp_path / "b.md"
+    p.write_bytes(raw)
+    return p
+
+
+def test_append_keeps_crlf_bytes_as_exact_prefix(tmp_path):
+    raw = b"---\r\ntitle: T\r\n---\r\n\r\n# T\r\n\r\nhand written\r\n"
+    p = _hand_edited(tmp_path, raw)
+    assert append_highlights(p, BOOK, golden_items(), UTC) == ["01HXYZ", "01HABC"]
+    assert p.read_bytes().startswith(raw)
+
+
+def test_append_keeps_lone_cr_bytes_as_exact_prefix(tmp_path):
+    raw = b"# T\rold mac line\r"
+    p = _hand_edited(tmp_path, raw)
+    append_highlights(p, BOOK, golden_items(), UTC)
+    assert p.read_bytes().startswith(raw)
+
+
+def test_append_is_idempotent_on_crlf_file(tmp_path):
+    raw = b"# T\r\n"
+    p = _hand_edited(tmp_path, raw)
+    append_highlights(p, BOOK, golden_items(), UTC)
+    snapshot = p.read_bytes()
+    assert append_highlights(p, BOOK, golden_items(), UTC) == []
+    assert p.read_bytes() == snapshot
+
+
+def test_append_does_not_replace_the_file(tmp_path):
+    # A full rewrite (even via temp+rename) could truncate or swap the user's file.
+    p = _hand_edited(tmp_path, b"# T\n")
+    inode = p.stat().st_ino
+    append_highlights(p, BOOK, golden_items(), UTC)
+    assert p.stat().st_ino == inode

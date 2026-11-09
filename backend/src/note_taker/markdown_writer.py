@@ -62,16 +62,25 @@ def existing_marker_ids(text: str) -> set[str]:
 def append_highlights(
     path: Path, book: Book, items: list[tuple[Capture, Highlight]], tz: tzinfo
 ) -> list[str]:
-    existing = path.read_text(encoding="utf-8") if path.exists() else None
-    seen = existing_marker_ids(existing) if existing is not None else set()
+    # Bytes, not read_text(): universal-newline translation would hide CRLF/CR from us.
+    raw = path.read_bytes() if path.exists() else None
+    # Normalised copy for marker detection only; never written back.
+    seen = (
+        existing_marker_ids(raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n"))
+        if raw is not None
+        else set()
+    )
     fresh = [(c, h) for c, h in sorted(items, key=lambda ch: ch[0].captured_at) if h.id not in seen]
     if not fresh:
         return []
-    blocks = [render_section(c, h, tz) for c, h in fresh]
-    # Existing text is never rewritten (user hand-edits survive); we only add to its tail.
-    base = render_new_file(book) if existing is None else existing
-    if not base.endswith("\n"):
-        base += "\n"
+    body = "\n".join(render_section(c, h, tz) for c, h in fresh)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes((base + "\n" + "\n".join(blocks)).encode("utf-8"))
+    if raw is None:
+        path.write_bytes((render_new_file(book) + "\n" + body).encode("utf-8"))
+    else:
+        # Append-only so user hand-edits survive byte-for-byte and a crash can't truncate
+        # the file. New sections use LF regardless of the file's existing newline style.
+        lead = "\n" if raw.endswith(b"\n") else "\n\n"
+        with path.open("ab") as f:
+            f.write((lead + body).encode("utf-8"))
     return [h.id for _, h in fresh]
