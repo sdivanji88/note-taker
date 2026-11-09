@@ -8,6 +8,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from ulid import ULID
+
 from note_taker.jsonio import read_json, write_json_atomic
 from note_taker.models import Batch, Capture, CaptureStatus, Highlight, Source
 from note_taker.paths import DataPaths
@@ -32,6 +34,15 @@ def utcnow() -> datetime:
 def captured_at(data: bytes, fallback: datetime) -> datetime:
     # Stub: Task 7 replaces this with imaging.captured_at (EXIF timestamp).
     return fallback
+
+
+def _is_valid_id(batch_id: str) -> bool:
+    # Ids come from URLs and become directory names (and rmtree targets), so only
+    # canonical ULIDs, which we mint ourselves, may reach the filesystem.
+    try:
+        return str(ULID.from_str(batch_id)) == batch_id
+    except (ValueError, TypeError):
+        return False
 
 
 def _sniff_extension(data: bytes) -> str | None:
@@ -61,6 +72,10 @@ class BatchStore:
             return batch
 
     def get(self, batch_id: str) -> Batch:
+        # Every public method that takes a batch_id reaches the disk through here
+        # or through delete/photo_path, so this is the single validation point.
+        if not _is_valid_id(batch_id):
+            raise BatchNotFound(batch_id)
         data = read_json(self._paths.batch_file(batch_id))
         if data is None:
             raise BatchNotFound(batch_id)
@@ -160,10 +175,14 @@ class BatchStore:
 
     def photo_path(self, batch_id: str, capture: Capture) -> Path:
         assert capture.image_file, "kindle captures have no photo"
+        if not _is_valid_id(batch_id):
+            raise BatchNotFound(batch_id)
         return self._paths.photos_dir(batch_id) / capture.image_file
 
     def delete(self, batch_id: str) -> None:
         # Whole folder: photos must never outlive their batch.
+        if not _is_valid_id(batch_id):
+            return  # nothing legitimate to delete; never rmtree an unvalidated path
         with _LOCK:
             shutil.rmtree(self._paths.batch_dir(batch_id), ignore_errors=True)
 

@@ -96,3 +96,31 @@ def test_add_kindle_is_ready_and_update_capture_persists(data_paths):
     cap.page = 13
     assert store.update_capture(batch.id, cap).captures[0].page == 13
     assert store.get(batch.id).captures[0].page == 13
+
+
+@pytest.mark.parametrize("bad_id", ["..", "../x", "a/b", "", "/etc", "."])
+def test_unsafe_batch_ids_are_not_found_and_touch_nothing(data_paths, make_image, bad_id):
+    store = BatchStore(data_paths)
+    keep = store.create(None)
+    (data_paths.root / "sentinel.txt").write_text("x")
+    photo = make_image("a.png").read_bytes()
+
+    with pytest.raises(BatchNotFound):
+        store.get(bad_id)
+    with pytest.raises(BatchNotFound):
+        store.add_photo(bad_id, "a.png", photo)
+    with pytest.raises(BatchNotFound):
+        store.add_kindle(bad_id, [], None, None, None, None)
+    with pytest.raises(BatchNotFound):
+        store.remove_capture(bad_id, "C1")
+    with pytest.raises(BatchNotFound):
+        store.update_capture(bad_id, keep_capture(store, keep))
+    store.delete(bad_id)  # must be a no-op, never an rmtree outside the batch
+
+    assert (data_paths.root / "sentinel.txt").exists()
+    assert data_paths.batch_dir(keep.id).exists()
+    assert [b.id for b in store.list()] == [keep.id]
+
+
+def keep_capture(store, batch):
+    return store.add_kindle(batch.id, [], None, None, None, None)
