@@ -1,0 +1,44 @@
+backend/src/note_taker/push_service.py
+  s_3e829881b83b35::t_4f21b6bf830267 14-22
+  s_3e829881b83b35::t_023a4d92e8fba1 301,312
+backend/tests/test_cli_parent_death.py
+  s_3e829881b83b35::t_8d39f3ed48663d 58
+scripts/lint.sh
+  s_3e829881b83b35::t_794d51d9d7b16a 2-4,11,15-26,28-36,39
+backend/src/note_taker/extraction_queue.py
+  s_3e829881b83b35::t_023a4d92e8fba1 187,204,279
+  s_3e829881b83b35::t_4f21b6bf830267 13-21
+backend/tests/test_models.py
+  s_3e829881b83b35::t_4f21b6bf830267 2
+backend/tests/test_batch_store.py
+  s_3e829881b83b35::t_4f21b6bf830267 2,4-9
+  s_3e829881b83b35::t_8d39f3ed48663d 161
+backend/tests/test_janitor.py
+  s_3e829881b83b35::t_4f21b6bf830267 4,8-15
+backend/tests/test_push_recovery.py
+  s_3e829881b83b35::t_8d39f3ed48663d 171
+backend/tests/test_push_guards.py
+  s_3e829881b83b35::t_4f21b6bf830267 6-14
+backend/tests/push_helpers.py
+  s_3e829881b83b35::t_023a4d92e8fba1 31-32
+backend/tests/test_markdown_writer.py
+  s_3e829881b83b35::t_4f21b6bf830267 4-5
+backend/tests/test_imaging.py
+  s_3e829881b83b35::t_4f21b6bf830267 8,13-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "4ab18f0e0a6a73b3ea3d47e12df9983f7bc34090",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
