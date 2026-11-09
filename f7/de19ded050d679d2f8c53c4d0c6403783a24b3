@@ -1,0 +1,55 @@
+frontend/tests/BatchGrid.test.tsx
+  s_3e829881b83b35::t_9ab909f25df303 1-260
+frontend/src/components/Thumb.tsx
+  s_3e829881b83b35::t_344265bd1c651b 1-68
+frontend/src/api/context.tsx
+  s_3e829881b83b35::t_344265bd1c651b 1-12
+frontend/tests/helpers.tsx
+  s_3e829881b83b35::t_9ab909f25df303 1-101
+frontend/src/App.tsx
+  s_3e829881b83b35::t_6c9ce21e7a1fa3 1-20,22-50
+frontend/src/screens/BatchList.tsx
+  s_3e829881b83b35::t_344265bd1c651b 1-109
+frontend/src/styles.css
+  s_3e829881b83b35::t_0d58316ff095ff 1-38
+frontend/src/components/ConfirmDialog.tsx
+  s_3e829881b83b35::t_344265bd1c651b 1-54
+frontend/src/components/ExpiryBanner.tsx
+  s_3e829881b83b35::t_344265bd1c651b 1-15
+frontend/src/Root.tsx
+  s_3e829881b83b35::t_0d58316ff095ff 1-47
+frontend/src/components/BookSelect.tsx
+  s_3e829881b83b35::t_344265bd1c651b 1-95
+frontend/tests/App.test.tsx
+  s_3e829881b83b35::t_0d58316ff095ff 1-43
+frontend/tests/setup.ts
+  s_3e829881b83b35::t_9ab909f25df303 1-6
+frontend/vitest.config.mts
+  s_3e829881b83b35::t_9ab909f25df303 6
+frontend/src/screens/BatchGrid.tsx
+  s_3e829881b83b35::t_6c9ce21e7a1fa3 1-286
+frontend/tsconfig.web.json
+  s_3e829881b83b35::t_156ed6bcf3336d 11,13
+frontend/src/format.ts
+  s_3e829881b83b35::t_344265bd1c651b 1-13
+frontend/tests/BatchList.test.tsx
+  s_3e829881b83b35::t_9ab909f25df303 1-114
+frontend/src/main.tsx
+  s_3e829881b83b35::t_0d58316ff095ff 3-4,8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "f7de19ded050d679d2f8c53c4d0c6403783a24b3",
+  "prompts": {},
+  "sessions": {
+    "s_3e829881b83b35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee5a5cbf-7a45-4195-9b73-275de09f802e",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "Sughosh Divanji <sdivanji@paloaltonetworks.com>"
+    }
+  }
+}
