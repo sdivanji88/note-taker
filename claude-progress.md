@@ -61,6 +61,7 @@
 
 ### Session 3 -- 2026-11-21 (Ollama live validation, Pass 1)
 
+**Duration**: ~3h
 **Goal**: Validate the Ollama extractor against a real Ollama and commit a tested default model.
 
 **What was done**:
@@ -75,3 +76,5 @@
 - ~40-55 s per photo (limit 180 s). `done_reason=length` is not yet an explicit error. Tesseract still unverified.
 
 **Benchmark Results**: live suite 429.93 s for p163 + 9 fixtures.
+
+**Next session**: On `feat/ollama-live-validation`, Ollama Pass 2 — treat `done_reason=length` as an explicit extraction error and improve page/note accuracy (see session-handoff.md).

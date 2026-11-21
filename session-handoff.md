@@ -20,7 +20,7 @@
 0. **Ollama Pass 2:** quality on fixtures (page often None on some photos, ~40-55 s/photo), and treat `done_reason == "length"` as an explicit extraction error.
 
 1. **Fix first** (found by the last review, not fixed): `PushService.recover()` fetches with the default 60 s network timeout inside the FastAPI lifespan, longer than Electron's 20 s readiness budget — after a crash mid-push on a slow remote the app can fail to start. One line: `git.fetch(timeout_s=_SYNC_TIMEOUT_S)` in `backend/src/note_taker/push_service.py` (~:167), plus a test with a hanging fetch. Details: `docs/deferred-findings.md`.
-2. **Verify on real tools** (neither was installed where this was built): `brew install tesseract`, install Ollama and pull a vision model; run `(cd backend && uv run pytest -m live)` and the photo-path e2e (`bash scripts/ui-test.sh`); tune the default model (`qwen2.5vl:7b` is a placeholder), the Ollama schema, the yellow HSV range and rotation detection on the 7 real photos in `backend/tests/fixtures/` (gitignored — they carry GPS; only `sample-p163.jpg` is committed).
+2. **Tesseract, HSV, and the photo-path e2e** (Tesseract was not installed where this was built): `brew install tesseract`, then run the photo-path e2e (`bash scripts/ui-test.sh`) and tune the yellow HSV range and rotation detection on the 7 real photos in `backend/tests/fixtures/` (gitignored — they carry GPS; only `sample-p163.jpg` is committed). Ollama Pass 1 is done; `qwen2.5vl:7b` is the tested default.
 3. Work through the "Should fix soon" list in `docs/deferred-findings.md`.
 4. Decide how to integrate the branch (merge/PR) — see below.
 
@@ -29,7 +29,7 @@
 - **Decision:** execution was superpowers:subagent-driven-development; every ruling the controller took on the user's behalf is in the git-ignored ledger `.superpowers/sdd/2026-11-08-note-taker/progress.md` (lines starting `Ruling:`), which was kept. The important ones: the bbox overlay was dropped (the backend does not persist boxes); rotating a `ready` capture changes the view only (re-running extraction would overwrite edits); capture edits are refused while pending/extracting/pushing; an expiry warning counts only if given in the current window; the push refuses when the clone is on the wrong branch or `origin` differs from Settings; `origin_url` is compared as the raw config string.
 - **Decision:** the real Electron data dir is `~/Library/Application Support/note-taker-frontend/` (package name), not `note-taker`.
 - **Side effect to know about:** earlier real-window checks left only Chromium cache files in that directory (no settings, batches or notes). Safe to delete.
-- **Needs from user:** nothing blocks; items 1–2 above are the next work.
+- **Needs from user:** nothing blocks; next work is Pass 2 (item 0: `done_reason=length`, page/note accuracy) and Tesseract/HSV/photo-path e2e (item 2).
 
 ## Files modified
 
@@ -41,4 +41,4 @@ None. Performance targets in `docs/RELIABILITY.md` are unmeasured (the image end
 
 ## Next session — start here
 
-Read `CLAUDE.md`, then `docs/deferred-findings.md`. Check out `feat/note-taker-v1` (or `main` once merged). Apply fix 1 (one line + test) with the `superpowers:test-driven-development` skill, then install Tesseract/Ollama and run the live checks (item 2). Run `bash scripts/test.sh`, `scripts/integration.sh`, `scripts/architecture-review.sh`, `scripts/lint.sh` and `scripts/ui-test.sh` before changing anything else; all pass at the end of session 2.
+Read `CLAUDE.md`, then `docs/deferred-findings.md`. Check out `feat/ollama-live-validation`. Start with Ollama Pass 2 (item 0): treat `done_reason == "length"` as an explicit extraction error, and improve page/note accuracy on the fixtures (page is often None; ~40–55 s/photo). Then Tesseract, the yellow HSV range, and the photo-path e2e (item 2). The `recover()` timeout fix (item 1) is still open. Run `bash scripts/test.sh`, `scripts/integration.sh`, `scripts/architecture-review.sh`, `scripts/lint.sh` and `scripts/ui-test.sh` before changing anything else; those gates passed at the end of session 2, and the Ollama `-m live` suite passed in session 3.
