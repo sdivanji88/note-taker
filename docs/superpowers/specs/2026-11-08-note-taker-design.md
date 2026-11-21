@@ -135,7 +135,7 @@ Rules **[call]**:
 - **Backend**: Python 3.12+, FastAPI + uvicorn, Pydantic models, `uv` for env/deps. **[call]**
 - **Frontend**: Electron + React + TypeScript, built with Vite. **[call]** for TS and Vite.
 - **Process model [call]**: Electron main picks a free port, generates a random per-launch token, and spawns the backend with both. The backend binds to `127.0.0.1` only and requires the `X-Session-Token` header on every request. Electron kills the backend on quit.
-- **Local data dir [call]**: `~/Library/Application Support/note-taker/` (via Electron `app.getPath('userData')`, passed to the backend):
+- **Local data dir [call]**: `~/Library/Application Support/note-taker-frontend/` — Electron derives it from the frontend package name (via Electron `app.getPath('userData')`, passed to the backend):
   - `settings.json`
   - `batches/<batch_id>/batch.json` and `batches/<batch_id>/photos/<capture_id>.<ext>`
   - `repo/` is the local clone of the notes repo, unless the user points at an existing clone.
