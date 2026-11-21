@@ -157,8 +157,8 @@ class NotesRepoSettings(BaseModel):
 
 def _default_ollama_model() -> str:
     # Bakeoff / live tests: NOTE_TAKER_OLLAMA_MODEL=<tag> pytest -m live ...
-    # Empty or unset → product default. Explicit OllamaSettings(model=...) always wins.
-    return os.environ.get("NOTE_TAKER_OLLAMA_MODEL") or "qwen2.5vl:7b"
+    # Empty, whitespace-only or unset → product default. Explicit OllamaSettings(model=...) always wins.
+    return (os.environ.get("NOTE_TAKER_OLLAMA_MODEL") or "").strip() or "qwen2.5vl:7b"
 
 
 class OllamaSettings(BaseModel):

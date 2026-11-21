@@ -37,8 +37,12 @@ ollama pull qwen2.5vl:7b
 
 `qwen2.5vl:7b` is the default Ollama vision model, chosen by live tests against
 `sample-p163.jpg` and local fixture photos (the 3b and `granite3.2-vision` candidates failed the
-p163 check). Change the model name in Settings if you prefer another vision model. Override for
-one-off runs with `NOTE_TAKER_OLLAMA_MODEL=<tag>`.
+p163 check). Change the model name in Settings if you prefer another vision model.
+
+`NOTE_TAKER_OLLAMA_MODEL=<tag>` is for live tests (`uv run pytest -m live`) and other code that
+builds `OllamaSettings()` from defaults; it is not an app-level override. If `settings.json`
+already has a model, the env var does nothing. If settings are created with no saved model, the
+env value becomes the default and is written to `settings.json` on the next save.
 
 ## First run
 

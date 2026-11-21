@@ -7,7 +7,7 @@
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
 | Build & Compile | A | `npm run build` (typecheck + electron-vite) clean; `uv sync` clean; no warnings in test output. |
-| Feature Completeness | B | 14 of 16 features `pass`, 2 `partial` (Ollama and Tesseract extractors have never run against the real tools). All v1 spec goals implemented; non-goals respected. |
+| Feature Completeness | B | 15 of 16 features `pass`, 1 `partial` (Tesseract extractor has never run against the real binary; the Ollama extractor passed live validation on `qwen2.5vl:7b`). All v1 spec goals implemented; non-goals respected. |
 | Test Coverage | B+ | 423 backend tests (real git against a bare remote, concurrent pushes, crash recovery), 145 frontend tests, hermetic Kindle-path Electron e2e. Gaps: real-tool tests skipped/deselected; photo-path e2e never run. |
 | Documentation | B | README, ARCHITECTURE, PRODUCT, RELIABILITY and the spec are current; `docs/deferred-findings.md` lists what is open. No user-facing screenshots/walkthrough. |
 | Architecture Adherence | A- | `architecture-review.sh` passes (no file over 500 LOC; imports ≤ 15) with one documented exemption (composition roots `api/app.py`, `api/deps.py`). |

@@ -9,7 +9,7 @@
 ## What was accomplished
 
 - **Session 3 (Ollama live validation, Pass 2 close):** no prompt change (page=None on 3/9, one note repeating highlight text: accepted residuals, user-editable). Added `done_reason == "length"` -> `ExtractionError` with a unit test. Live suite re-run: 2 passed in 382.68 s. `ollama-extractor` is now `pass`.
-- **Session 3 (Ollama live validation, Pass 1):** live bakeoff on qwen2.5vl:3b, qwen2.5vl:7b and granite3.2-vision. Winner and default: `qwen2.5vl:7b` (3b: page=None on p163; granite: no match + 180 s timeout). Real fix found: Ollama's default 4096-token context truncated the JSON (`done_reason=length`), so `OllamaVisionExtractor` now sends `options.num_ctx=8192` (unit-tested). Both `-m live` tests pass with the env override unset (p163 and the 9-photo fixture report, ~430 s). Schema unchanged (nullable unions accepted). Tesseract is still unverified.
+- **Session 3 (Ollama live validation, Pass 1):** live bakeoff on qwen2.5vl:3b, qwen2.5vl:7b and granite3.2-vision. Winner and default: `qwen2.5vl:7b` (3b: page=None on p163; granite: no match + 180 s timeout). Real fix found: Ollama's default 4096-token context truncated the JSON (`done_reason=length`), so `OllamaVisionExtractor` now sends `options.num_ctx=8192` (unit-tested). Both `-m live` tests pass with the env override unset (p163 and the 9-photo fixture report; ~430 s then, ~383 s in the Pass 2 re-run). Schema unchanged (nullable unions accepted). Tesseract is still unverified.
 
 - All 16 plan tasks were built test-first by subagents, each with its own spec+quality review and fix loop, then a final whole-branch review and one final fix wave (12 commits). Branch `feat/note-taker-v1` is ~50 commits ahead of `main` (merge base `9c894d0`); nothing has been merged or pushed.
 - Backend (Python/FastAPI, `backend/`): batch store, append-only markdown writer, book catalog, safe git publisher, idempotent push service with crash recovery, extraction queue, Ollama and Tesseract extractors, expiry janitor, token-guarded REST API + SSE. **423 tests pass** (2 skipped need Tesseract; 2 `-m live` tests deselected).
@@ -19,7 +19,7 @@
 ## What remains
 
 1. **Fix first** (found by the last review, not fixed): `PushService.recover()` fetches with the default 60 s network timeout inside the FastAPI lifespan, longer than Electron's 20 s readiness budget — after a crash mid-push on a slow remote the app can fail to start. One line: `git.fetch(timeout_s=_SYNC_TIMEOUT_S)` in `backend/src/note_taker/push_service.py` (~:167), plus a test with a hanging fetch. Details: `docs/deferred-findings.md`.
-2. **Tesseract, HSV, and the photo-path e2e** (Tesseract was not installed where this was built): `brew install tesseract`, then run the photo-path e2e (`bash scripts/ui-test.sh`) and tune the yellow HSV range and rotation detection on the 7 real photos in `backend/tests/fixtures/` (gitignored — they carry GPS; only `sample-p163.jpg` is committed). Ollama Pass 1 is done; `qwen2.5vl:7b` is the tested default.
+2. **Tesseract, HSV, and the photo-path e2e** (Tesseract was not installed where this was built): `brew install tesseract`, then run the photo-path e2e (`bash scripts/ui-test.sh`) and tune the yellow HSV range and rotation detection on the 7 real photos in `backend/tests/fixtures/` (gitignored — they carry GPS; only `sample-p163.jpg` is committed). Ollama Pass 1 + 2 are done; `qwen2.5vl:7b` is the tested default.
 3. Work through the "Should fix soon" list in `docs/deferred-findings.md`.
 4. Decide how to integrate the branch (merge/PR) — see below.
 
@@ -32,7 +32,8 @@
 
 ## Files modified
 
-Everything under `backend/`, `frontend/`, `scripts/`, `docs/`, `README.md`, `CLAUDE.md` and the harness trackers (`feature_list.json`, `claude-progress.md`, `quality-document.md`, `evaluator-rubric.md`, this file). `git log main..feat/note-taker-v1` lists the commits.
+- **Branch `feat/ollama-live-validation`** (vs `main`): `backend/src/note_taker/models.py` (`NOTE_TAKER_OLLAMA_MODEL` default, whitespace-stripped), `backend/src/note_taker/extractors/ollama.py` (`num_ctx=8192`, truncation -> `ExtractionError` + warning log), `backend/tests/test_models.py`, `backend/tests/test_ollama_extractor.py` (+ live tests), `README.md`, `docs/deferred-findings.md`, `feature_list.json`, `session-handoff.md`, `quality-document.md`, `evaluator-rubric.md`, and the design/plan under `docs/superpowers/`.
+- **Branch `feat/note-taker-v1`:** Everything under `backend/`, `frontend/`, `scripts/`, `docs/`, `README.md`, `CLAUDE.md` and the harness trackers (`feature_list.json`, `claude-progress.md`, `quality-document.md`, `evaluator-rubric.md`, this file). `git log main..feat/note-taker-v1` lists the commits.
 
 ## Benchmark results (if applicable)
 

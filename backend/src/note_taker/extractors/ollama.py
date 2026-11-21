@@ -108,6 +108,7 @@ class OllamaVisionExtractor:
         # A cut-off answer can still be valid JSON (e.g. fewer highlights), which would silently
         # drop text the user highlighted; failing the capture lets them retry instead.
         if data.get("done_reason") == "length":
+            log.warning("Ollama answer truncated (done_reason=length); failing capture")
             raise ExtractionError("the model ran out of room before finishing; retry the photo")
         try:
             content = data["message"]["content"]

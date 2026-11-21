@@ -43,3 +43,13 @@ def test_ollama_model_explicit_kwarg_beats_env(monkeypatch):
 def test_ollama_model_empty_env_falls_back_to_default(monkeypatch):
     monkeypatch.setenv("NOTE_TAKER_OLLAMA_MODEL", "")
     assert OllamaSettings().model == "qwen2.5vl:7b"
+
+
+def test_ollama_model_whitespace_env_falls_back_to_default(monkeypatch):
+    monkeypatch.setenv("NOTE_TAKER_OLLAMA_MODEL", "  \t ")
+    assert OllamaSettings().model == "qwen2.5vl:7b"
+
+
+def test_ollama_model_env_is_stripped(monkeypatch):
+    monkeypatch.setenv("NOTE_TAKER_OLLAMA_MODEL", " granite3.2-vision \n")
+    assert OllamaSettings().model == "granite3.2-vision"
