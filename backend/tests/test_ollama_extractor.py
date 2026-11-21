@@ -44,7 +44,7 @@ def test_extract_parses_structured_content(extractor, image):
     body = json.loads(route.calls.last.request.content)
     assert body["model"] == "m1"
     assert body["stream"] is False
-    assert body["options"] == {"temperature": 0}
+    assert body["options"] == {"temperature": 0, "num_ctx": 8192}
     assert body["format"]
     img = body["messages"][0]["images"][0]
     assert len(base64.b64decode(img)) > 0

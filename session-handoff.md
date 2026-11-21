@@ -2,11 +2,13 @@
 
 > Read this at the start of every session. Update it before ending every session.
 
-**Last updated:** 2026-11-09 (Session 2: the whole v1 was built on branch `feat/note-taker-v1`, not yet merged)
+**Last updated:** 2026-11-21 (Session 3: Ollama live validation Pass 1 on branch `feat/ollama-live-validation`; Session 2 built v1)
 
 ---
 
 ## What was accomplished
+
+- **Session 3 (Ollama live validation, Pass 1):** live bakeoff on qwen2.5vl:3b, qwen2.5vl:7b and granite3.2-vision. Winner and default: `qwen2.5vl:7b` (3b: page=None on p163; granite: no match + 180 s timeout). Real fix found: Ollama's default 4096-token context truncated the JSON (`done_reason=length`), so `OllamaVisionExtractor` now sends `options.num_ctx=8192` (unit-tested). Both `-m live` tests pass with the env override unset (p163 and the 9-photo fixture report, ~430 s). Schema unchanged (nullable unions accepted). `feature_list.json` ollama-extractor stays `partial`. Tesseract is still unverified.
 
 - All 16 plan tasks were built test-first by subagents, each with its own spec+quality review and fix loop, then a final whole-branch review and one final fix wave (12 commits). Branch `feat/note-taker-v1` is ~50 commits ahead of `main` (merge base `9c894d0`); nothing has been merged or pushed.
 - Backend (Python/FastAPI, `backend/`): batch store, append-only markdown writer, book catalog, safe git publisher, idempotent push service with crash recovery, extraction queue, Ollama and Tesseract extractors, expiry janitor, token-guarded REST API + SSE. **423 tests pass** (2 skipped need Tesseract; 2 `-m live` tests deselected).
@@ -14,6 +16,8 @@
 - Gates: `scripts/architecture-review.sh` passes (one documented composition-root exemption), `scripts/lint.sh` is clean and now reports honestly.
 
 ## What remains
+
+0. **Ollama Pass 2:** quality on fixtures (page often None on some photos, ~40-55 s/photo), and treat `done_reason == "length"` as an explicit extraction error.
 
 1. **Fix first** (found by the last review, not fixed): `PushService.recover()` fetches with the default 60 s network timeout inside the FastAPI lifespan, longer than Electron's 20 s readiness budget — after a crash mid-push on a slow remote the app can fail to start. One line: `git.fetch(timeout_s=_SYNC_TIMEOUT_S)` in `backend/src/note_taker/push_service.py` (~:167), plus a test with a hanging fetch. Details: `docs/deferred-findings.md`.
 2. **Verify on real tools** (neither was installed where this was built): `brew install tesseract`, install Ollama and pull a vision model; run `(cd backend && uv run pytest -m live)` and the photo-path e2e (`bash scripts/ui-test.sh`); tune the default model (`qwen2.5vl:7b` is a placeholder), the Ollama schema, the yellow HSV range and rotation detection on the 7 real photos in `backend/tests/fixtures/` (gitignored — they carry GPS; only `sample-p163.jpg` is committed).

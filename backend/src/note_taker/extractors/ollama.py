@@ -73,7 +73,9 @@ class OllamaVisionExtractor:
             "model": self.model,
             "stream": False,
             "format": _FORMAT,
-            "options": {"temperature": 0},
+            # Ollama's default context is 4096 tokens; the downscaled image alone uses ~4k prompt
+            # tokens, so the JSON answer got cut off (done_reason=length). 8192 leaves room for it.
+            "options": {"temperature": 0, "num_ctx": 8192},
             "messages": [{"role": "user", "content": PROMPT, "images": [image_b64]}],
         }
         data = self._chat(body)

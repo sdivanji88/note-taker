@@ -58,3 +58,20 @@
 
 **Next session**: apply the one-line recover() fix with a test, then install Tesseract/Ollama and run the live checks on the real photos (see session-handoff.md).
 
+
+### Session 3 -- 2026-11-21 (Ollama live validation, Pass 1)
+
+**Goal**: Validate the Ollama extractor against a real Ollama and commit a tested default model.
+
+**What was done**:
+- Ran the live tests on three candidate vision models; qwen2.5vl:7b was the only one to pass p163. Committed it as the default (README now says it is tested).
+- Found that the 4096-token default context truncated the JSON answer; set `num_ctx=8192` in the chat options with a unit test. Both live tests pass with the env override unset.
+
+**Decisions**:
+- Keep the nullable-union schema (Task 3 skipped) because the real server accepted it and the failures were context truncation, not schema rejection.
+- `ollama-extractor` stays `partial` until Pass 2 quality review, because page/note accuracy varies (page=None on 3 of 9 fixtures).
+
+**Issues**:
+- ~40-55 s per photo (limit 180 s). `done_reason=length` is not yet an explicit error. Tesseract still unverified.
+
+**Benchmark Results**: live suite 429.93 s for p163 + 9 fixtures.

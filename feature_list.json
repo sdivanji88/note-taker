@@ -56,7 +56,7 @@
       "name": "Ollama vision extractor",
       "plan_task": 8,
       "status": "partial",
-      "evidence": "Commit 1c52a7e. tests/test_ollama_extractor.py with respx (request body, schema without bbox, timeouts, error mapping). NEVER run against a real Ollama: default model qwen2.5vl:7b and the structured-output schema (nullable unions) are untested; live tests (-m live) are deselected."
+      "evidence": "Commit 1c52a7e. tests/test_ollama_extractor.py with respx (request body, schema without bbox, timeouts, error mapping). Ollama live validation Pass 1: live p163 test green on the default qwen2.5vl:7b with options.num_ctx=8192 (Ollama's 4096 default truncated the JSON, done_reason=length); live fixture report ran on all local photos without ExtractionError. Schema (nullable unions) unchanged: the server accepted it. Candidates qwen2.5vl:3b (page=None) and granite3.2-vision (timeout, no match) failed p163. Still partial: Pass 2 quality (page/note accuracy, ~40-55s per photo) not assessed; live tests stay deselected by default."
     },
     {
       "id": "tesseract-extractor",
