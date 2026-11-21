@@ -84,6 +84,14 @@ def test_malformed_content_raises_extraction_error(extractor, image, content):
 
 
 @respx.mock
+def test_truncated_answer_raises_even_if_json_is_valid(extractor, image):
+    body = {"message": {"content": '{"highlights": []}'}, "done": True, "done_reason": "length"}
+    respx.post(f"{BASE}/api/chat").mock(return_value=httpx.Response(200, json=body))
+    with pytest.raises(ExtractionError, match="ran out of room"):
+        extractor.extract(image)
+
+
+@respx.mock
 def test_missing_message_raises_extraction_error(extractor, image):
     respx.post(f"{BASE}/api/chat").mock(return_value=httpx.Response(200, json={"done": True}))
     with pytest.raises(ExtractionError):

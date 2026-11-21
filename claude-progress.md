@@ -78,3 +78,23 @@
 **Benchmark Results**: live suite 429.93 s for p163 + 9 fixtures.
 
 **Next session**: On `feat/ollama-live-validation`, Ollama Pass 2 — treat `done_reason=length` as an explicit extraction error and improve page/note accuracy (see session-handoff.md).
+
+
+### Session 3b -- 2026-11-21 (Ollama live validation, Pass 2)
+
+**Duration**: ~25 min
+**Goal**: Classify fixture weaknesses and tune only if justified.
+
+**What was done**:
+- Classified the 9 fixtures: page=None on 3, one note repeating highlight text, no sideways or parse failures. Left PROMPT unchanged.
+- `done_reason == "length"` now raises ExtractionError (unit test added). Re-ran live suite: 2 passed in 382.68 s. Set `ollama-extractor` to pass.
+
+**Decisions**:
+- No prompt change: each weakness is user-correctable in the review editor, and a prompt edit risks regressing p163 at ~6 min per live run.
+
+**Issues**:
+- Residuals recorded in docs/deferred-findings.md. Tesseract still unverified.
+
+**Benchmark Results**: live suite 382.68 s (p163 + 9 fixtures).
+
+**Next session**: Tesseract/HSV/photo-path e2e, then the `recover()` timeout fix.

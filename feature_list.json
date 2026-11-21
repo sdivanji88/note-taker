@@ -55,8 +55,8 @@
       "id": "ollama-extractor",
       "name": "Ollama vision extractor",
       "plan_task": 8,
-      "status": "partial",
-      "evidence": "Commit 1c52a7e. tests/test_ollama_extractor.py with respx (request body, schema without bbox, timeouts, error mapping). Ollama live validation Pass 1: live p163 test green on the default qwen2.5vl:7b with options.num_ctx=8192 (Ollama's 4096 default truncated the JSON, done_reason=length); live fixture report ran on all local photos without ExtractionError. Schema (nullable unions) unchanged: the server accepted it. Candidates qwen2.5vl:3b (page=None) and granite3.2-vision (timeout, no match) failed p163. Still partial: Pass 2 quality (page/note accuracy, ~40-55s per photo) not assessed; live tests stay deselected by default."
+      "status": "pass",
+      "evidence": "Commit 1c52a7e. tests/test_ollama_extractor.py with respx (request body, schema without bbox, timeouts, error mapping). Ollama live validation Pass 1: live p163 test green on the default qwen2.5vl:7b with options.num_ctx=8192 (Ollama's 4096 default truncated the JSON, done_reason=length); live fixture report ran on all local photos without ExtractionError. Schema (nullable unions) unchanged: the server accepted it. Candidates qwen2.5vl:3b (page=None) and granite3.2-vision (timeout, no match) failed p163. Pass 2 (2026-11-21): no prompt change; done_reason=length now raises ExtractionError (unit-tested, 24 non-live tests pass). Live suite re-run on qwen2.5vl:7b: 2 passed in 382.68s; all 9 fixtures returned highlights, page=None on 3/9 and one note that repeats highlight text (residuals in docs/deferred-findings.md; the user corrects them in the review editor). ~40-55s per photo. Live tests stay deselected by default."
     },
     {
       "id": "tesseract-extractor",

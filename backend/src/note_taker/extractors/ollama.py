@@ -105,6 +105,10 @@ class OllamaVisionExtractor:
     def _parse(data: dict) -> ExtractionResult:
         # Model output is untrusted text: anything that isn't the shape we asked for is a failure
         # of this capture, never an exception for the caller to interpret.
+        # A cut-off answer can still be valid JSON (e.g. fewer highlights), which would silently
+        # drop text the user highlighted; failing the capture lets them retry instead.
+        if data.get("done_reason") == "length":
+            raise ExtractionError("the model ran out of room before finishing; retry the photo")
         try:
             content = data["message"]["content"]
             payload = ExtractionResult.model_validate_json(content)
