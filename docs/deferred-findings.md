@@ -6,7 +6,7 @@ Findings from the per-task reviews and the final whole-branch review that were *
 
 | Item | Where | Smallest fix |
 |---|---|---|
-| **A crash mid-push plus a slow remote can still stop the app from starting.** `PushService.recover()` runs in the FastAPI lifespan before `/ping` answers and calls `git.fetch()` with the default 60 s network timeout; Electron gives up after 20 s and kills the backend, so every later launch fails the same way until the network is reachable. | `backend/src/note_taker/push_service.py` (`recover`, ~:167) | `git.fetch(timeout_s=_SYNC_TIMEOUT_S)` (10 s). A failed fetch already reopens the batch without reconciling, which is safe because pushes are idempotent. Add a test with a hanging fetch. |
+| ~~**A crash mid-push plus a slow remote can still stop the app from starting.**~~ **Fixed 2026-11-22** (`git.fetch(timeout_s=_SYNC_TIMEOUT_S)` + `test_recover_uses_short_fetch_timeout`). | `push_service.py` `recover` | — |
 | Origin comparison is a strict string match (trailing `/`, `.git`, scp-style vs `ssh://`, credentials in one URL only make a correct setup fail as `remote_mismatch`). Safe (push refused with a message naming both URLs), but annoying. | `push_service.py` `_clone_mismatch` (~:233) | Compare after stripping a trailing `/` and `.git`. |
 | A clone on the wrong branch/remote is only reported at push time (`sync()` skips silently with a log line). | `push_service.py` `sync` | Show it in `/health` or a BatchList notice. |
 

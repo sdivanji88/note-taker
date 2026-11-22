@@ -164,7 +164,9 @@ class PushService:
             git = self._git_factory()
             books_dir = self._settings().notes_repo.books_dir
             try:
-                git.fetch()
+                # Lifespan runs recover before /ping; Electron kills the backend after
+                # 20s. The default network timeout is 60s — use the short sync budget.
+                git.fetch(timeout_s=_SYNC_TIMEOUT_S)
                 fetched = True
             except GitError as exc:
                 # Can't see the remote: reopen with captures still approved. A later
