@@ -110,12 +110,16 @@ def _in(batch: Batch, capture_id: str) -> Capture:
 
 def _highlights(incoming: list[HighlightIn], existing: list[Highlight]) -> list[Highlight]:
     # Highlight ids are written into markdown markers that make pushes idempotent, so a
-    # known id is kept across edits, and an id we didn't mint is never accepted.
-    known = {h.id for h in existing}
-    return [
-        Highlight(text=h.text, note=h.note, **({"id": h.id} if h.id in known else {}))
-        for h in incoming
-    ]
+    # known id is kept across edits, and an id we didn't mint is never accepted. An id
+    # may be kept only once per payload: a repeat would be skipped forever by the marker
+    # check (its text never written), so repeats get a fresh id instead.
+    available = {h.id for h in existing}
+    result = []
+    for h in incoming:
+        keep = h.id in available
+        available.discard(h.id)
+        result.append(Highlight(text=h.text, note=h.note, **({"id": h.id} if keep else {})))
+    return result
 
 
 def _approvable(capture: Capture, batch: Batch, svc: Services) -> str | None:
