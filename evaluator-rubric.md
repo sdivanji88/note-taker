@@ -20,7 +20,7 @@
 | git-publisher | 4 | Rollback/dirty-check hardened after review, timeouts added in the final wave; hung-rebase corner case accepted. |
 | push-service | 4 | Idempotent, crash-recoverable, snapshot-compare, branch guard; residual: recover() fetch timeout can block startup. |
 | extraction-queue | 4 | Per-run claim tokens, outcome gating; unexpected-exception leftovers deferred. |
-| ollama-extractor | 3 | Well tested with mocks; never run against a real Ollama (model and schema unverified). |
+| ollama-extractor | 4 | Live-validated on `qwen2.5vl:7b` (p163 + 9 fixtures, ~383 s); `num_ctx=8192`, truncation fails the capture. Residuals: page=None on 3/9, one repeated note (user-editable). |
 | tesseract-extractor | 3 | Region finding tested on synthetic images; never run with the real binary. |
 | janitor | 4 | Warning must belong to the current window; skips pushing batches. |
 | rest-api | 4 | Strong trust boundary (token, whitelists, caps, masking); small deferred items. |

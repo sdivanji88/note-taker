@@ -55,15 +55,15 @@
       "id": "ollama-extractor",
       "name": "Ollama vision extractor",
       "plan_task": 8,
-      "status": "partial",
-      "evidence": "Commit 1c52a7e. tests/test_ollama_extractor.py with respx (request body, schema without bbox, timeouts, error mapping). NEVER run against a real Ollama: default model qwen2.5vl:7b and the structured-output schema (nullable unions) are untested; live tests (-m live) are deselected."
+      "status": "pass",
+      "evidence": "Commits 1c52a7e (extractor), 8f5943d (qwen2.5vl:7b default + num_ctx=8192), 41bb72a (truncation -> ExtractionError, Pass 2 close) and f032f17 (README env wording, env whitespace strip, truncation warning log). tests/test_ollama_extractor.py with respx (request body, schema without bbox, timeouts, error mapping). Ollama live validation Pass 1: live p163 test green on the default qwen2.5vl:7b with options.num_ctx=8192 (Ollama's 4096 default truncated the JSON, done_reason=length); live fixture report ran on all local photos without ExtractionError. Schema (nullable unions) unchanged: the server accepted it. Candidates qwen2.5vl:3b (page=None) and granite3.2-vision (timeout, no match) failed p163. Pass 2 (2026-11-21): no prompt change; done_reason=length now raises ExtractionError (unit-tested, 24 non-live tests pass). Live suite re-run on qwen2.5vl:7b: 2 passed in 382.68s; all 9 fixtures returned highlights, page=None on 3/9 and one note that repeats highlight text (residuals in docs/deferred-findings.md; the user corrects them in the review editor). ~40-55s per photo. Live tests stay deselected by default."
     },
     {
       "id": "tesseract-extractor",
       "name": "Tesseract highlight-mask extractor",
       "plan_task": 9,
-      "status": "partial",
-      "evidence": "Commit 2d5a856. tests/test_tesseract_extractor.py (OpenCV region finding on synthetic images, passage grouping, page-number choice, error mapping via an _ocr seam). NEVER run with the real tesseract binary (not installed): OCR quality and the default yellow HSV range on real photos are unverified; the real-binary test is skipped."
+      "status": "pass",
+      "evidence": "Commit 2d5a856; verified 2026-11-22 with tesseract 5.5.1 (Homebrew). tests/test_tesseract_extractor.py 29 passed including the real-binary path (no longer skipped). tests/test_imaging.py detect_rotation/OSD cases pass with real Tesseract. Photo-path Playwright e2e (synthetic yellow-highlight PNGs, extractor kind=tesseract) passed in scripts/ui-test.sh. HSV thresholds on real GPS fixture photos still un-tuned (accepted residual; synthetic e2e + unit coverage green)."
     },
     {
       "id": "janitor",
@@ -112,7 +112,7 @@
       "name": "Electron e2e smoke test + README",
       "plan_task": 16,
       "status": "pass",
-      "evidence": "Commits c158e40, 457c446, c3dfcab, 3cc9fbd. frontend/e2e/smoke.spec.ts: Kindle path passed 4/4 consecutive runs and again after the final wave; photo-path test SKIPPED (tesseract not installed) and has never run. README.md written; hermetic sandbox env (GIT_*/SSH_* stripped)."
+      "evidence": "Commits c158e40, 457c446, c3dfcab, 3cc9fbd; photo-path verified 2026-11-22. frontend/e2e/smoke.spec.ts: Kindle path + photo path both pass under scripts/ui-test.sh (vitest 145, build, Playwright 2/2 in ~14.6s) with tesseract 5.5.1 on PATH. Photo path uses synthetic yellow-highlight PNGs and extractor kind=tesseract. README.md written; hermetic sandbox env (GIT_*/SSH_* stripped)."
     }
   ]
 }

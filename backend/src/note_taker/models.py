@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 from enum import StrEnum
 
@@ -154,9 +155,15 @@ class NotesRepoSettings(BaseModel):
         return data
 
 
+def _default_ollama_model() -> str:
+    # Bakeoff / live tests: NOTE_TAKER_OLLAMA_MODEL=<tag> pytest -m live ...
+    # Empty, whitespace-only or unset → product default. Explicit OllamaSettings(model=...) always wins.
+    return (os.environ.get("NOTE_TAKER_OLLAMA_MODEL") or "").strip() or "qwen2.5vl:7b"
+
+
 class OllamaSettings(BaseModel):
     base_url: str = "http://localhost:11434"
-    model: str = "qwen2.5vl:7b"
+    model: str = Field(default_factory=_default_ollama_model)
 
 
 class TesseractSettings(BaseModel):

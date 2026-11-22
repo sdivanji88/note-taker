@@ -44,7 +44,7 @@ def test_extract_parses_structured_content(extractor, image):
     body = json.loads(route.calls.last.request.content)
     assert body["model"] == "m1"
     assert body["stream"] is False
-    assert body["options"] == {"temperature": 0}
+    assert body["options"] == {"temperature": 0, "num_ctx": 8192}
     assert body["format"]
     img = body["messages"][0]["images"][0]
     assert len(base64.b64decode(img)) > 0
@@ -81,6 +81,15 @@ def test_malformed_content_raises_extraction_error(extractor, image, content):
     with pytest.raises(ExtractionError) as e:
         extractor.extract(image)
     assert "Traceback" not in str(e.value) and len(str(e.value)) < 200
+
+
+@respx.mock
+def test_truncated_answer_raises_even_if_json_is_valid(extractor, image, caplog):
+    body = {"message": {"content": '{"highlights": []}'}, "done": True, "done_reason": "length"}
+    respx.post(f"{BASE}/api/chat").mock(return_value=httpx.Response(200, json=body))
+    with caplog.at_level("WARNING"), pytest.raises(ExtractionError, match="ran out of room"):
+        extractor.extract(image)
+    assert "truncated" in caplog.text
 
 
 @respx.mock

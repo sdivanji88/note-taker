@@ -73,7 +73,9 @@ class OllamaVisionExtractor:
             "model": self.model,
             "stream": False,
             "format": _FORMAT,
-            "options": {"temperature": 0},
+            # Ollama's default context is 4096 tokens; the downscaled image alone uses ~4k prompt
+            # tokens, so the JSON answer got cut off (done_reason=length). 8192 leaves room for it.
+            "options": {"temperature": 0, "num_ctx": 8192},
             "messages": [{"role": "user", "content": PROMPT, "images": [image_b64]}],
         }
         data = self._chat(body)
@@ -103,6 +105,11 @@ class OllamaVisionExtractor:
     def _parse(data: dict) -> ExtractionResult:
         # Model output is untrusted text: anything that isn't the shape we asked for is a failure
         # of this capture, never an exception for the caller to interpret.
+        # A cut-off answer can still be valid JSON (e.g. fewer highlights), which would silently
+        # drop text the user highlighted; failing the capture lets them retry instead.
+        if data.get("done_reason") == "length":
+            log.warning("Ollama answer truncated (done_reason=length); failing capture")
+            raise ExtractionError("the model ran out of room before finishing; retry the photo")
         try:
             content = data["message"]["content"]
             payload = ExtractionResult.model_validate_json(content)
