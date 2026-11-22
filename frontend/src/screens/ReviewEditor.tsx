@@ -117,14 +117,18 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
   // rather than on unmount: only a deliberate Back/Prev/Next may remove anything.
   // Resolves to the removed id, or null when nothing was removed.
   const dropBlankKindle = useCallback(async (): Promise<string | null> => {
-    const { nav: n, captures: cs, position: p } = view.current
-    const cur = cs[n[p - 1]]
-    if (!cur || !actionsRef.current?.isBlankKindle()) return null
+    const pane = actionsRef.current
+    const id = pane?.blankKindleId()
+    if (!pane || !id) return null
+    // Frozen in the same tick as the blank check: a keystroke during the round-trip would
+    // otherwise be lost along with the capture.
+    pane.setLeaving(true)
     try {
-      await api.deleteCapture(cur.id)
-      return cur.id
+      await api.deleteCapture(id)
+      return id
     } catch {
-      return null // Cleanup is a courtesy; the capture stays and the user still moves on.
+      pane.setLeaving(false) // Cleanup is a courtesy; the capture stays and the user moves on.
+      return null
     }
   }, [api])
 

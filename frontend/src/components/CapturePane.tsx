@@ -17,9 +17,14 @@ export interface PaneActions {
   // Whether Approve (and so ⌘↵) would do anything right now; the same condition that
   // disables the footer button, so the shortcut can't act where the button can't.
   canApprove: () => boolean
-  // A Kindle entry the user added and never filled in; leaving it would strand an empty
-  // capture in the batch. Photo captures are never "blank": the photo is the content.
-  isBlankKindle: () => boolean
+  // This pane's capture id if it is a Kindle entry the user added and never filled in
+  // (leaving it would strand an empty capture in the batch), else null. The id comes from
+  // the same pane that judged blankness, so the caller can't delete a different capture.
+  // Photo captures are never "blank": the photo is the content.
+  blankKindleId: () => string | null
+  // Freezes the pane (read-only, no approve) while the caller removes the capture, so
+  // nothing typed in that window is lost with it. Undo with false if the removal fails.
+  setLeaving: (leaving: boolean) => void
 }
 
 interface Props {
@@ -54,6 +59,7 @@ export default function CapturePane(props: Props) {
   const [pushHeld, setPushHeld] = useState(false)
   const heldAtLoad = useRef(0)
   const [busy, setBusy] = useState(false)
+  const [leaving, setLeaving] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [rotated, setRotated] = useState(false)
   const [retryKind, setRetryKind] = useState<ExtractorKind>(extractorName ?? 'tesseract')
@@ -66,7 +72,7 @@ export default function CapturePane(props: Props) {
   const { status } = capture
   const unfinished = status === 'pending' || status === 'extracting'
   const isPushingNow = props.batchPushing || pushHeld
-  const readOnly = unfinished || isPushingNow
+  const readOnly = unfinished || isPushingNow || leaving
   // Pending with an error = waiting on an unavailable extractor; the backend allows a
   // retry (possibly with the other extractor) from there, just as from failed.
   const waiting = status === 'pending' && !!capture.error
@@ -164,8 +170,14 @@ export default function CapturePane(props: Props) {
   useEffect(() => {
     // A capture that no longer exists has nothing to save, so leaving it never prompts.
     actionsRef.current = isGoneNow
-      ? { flush: async () => true, approve: async () => false, canApprove: () => false, isBlankKindle: () => false }
-      : { flush, approve, canApprove, isBlankKindle: () => capture.source === 'kindle' && isUnfilled(currentDraft()) }
+      ? { flush: async () => true, approve: async () => false, canApprove: () => false, blankKindleId: () => null, setLeaving: () => {} }
+      : {
+          flush,
+          approve,
+          canApprove,
+          blankKindleId: () => (capture.source === 'kindle' && isUnfilled(currentDraft()) ? capture.id : null),
+          setLeaving: (v) => mounted.current && setLeaving(v)
+        }
   })
 
   const unapprove = () => void act(() => patch({ status: 'ready' }))

@@ -270,7 +270,7 @@ describe('BatchList', () => {
     it.each([
       ['3 days out', 3 * 24 * H, 'Expires in 3 days'],
       ['exactly 1 day out', 24 * H, 'Expires in 1 day'],
-      ['5 hours out', 5 * H, 'Expires today'],
+      ['5 hours out', 5 * H, 'Expires within a day'],
       ['1 hour past', -1 * H, 'Expired — will be deleted soon']
     ])('%s', async (_n, offset, text) => {
       await one({ expiring_soon: true, expires_at: at(offset) })

@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { act, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../src/api/types'
 import { capture } from './helpers'
@@ -110,6 +110,60 @@ describe('leaving an untouched Kindle capture', () => {
     view.unmount()
     await settle()
     expect(s.client.deleteCapture).not.toHaveBeenCalled()
+  })
+})
+
+// While the delete is in flight the pane is the one the user still sees; anything typed
+// then would be lost with the capture, so it must be refused rather than silently dropped.
+describe('while the blank-Kindle delete is in flight', () => {
+  const pendingDelete = (s: ReturnType<typeof setup>) => {
+    let finish!: (ok: boolean) => void
+    s.client.deleteCapture.mockImplementation(
+      () => new Promise<void>((resolve, reject) => (finish = (ok) => (ok ? resolve() : reject(new ApiError(500, 'boom', 'down')))))
+    )
+    return (ok: boolean) => act(async () => { finish(ok); await vi.advanceTimersByTimeAsync(0) })
+  }
+
+  it('Next makes the pane read-only until it has moved on', async () => {
+    const s = setup([blankKindle('k1'), ready('c2', { chapter: 'two' })])
+    const resolve = pendingDelete(s)
+    s.start()
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await settle()
+    expect(s.client.deleteCapture).toHaveBeenCalledWith('k1')
+    expect(screen.getByLabelText('Chapter')).toBeDisabled()
+    expect(screen.getByLabelText('Highlight text')).toBeDisabled()
+    await resolve(true)
+    expect(screen.getByLabelText('Chapter')).toHaveValue('two')
+    expect(screen.getByLabelText('Chapter')).toBeEnabled()
+  })
+
+  it('Back makes the pane read-only, and a failed delete re-enables it before leaving', async () => {
+    const s = setup([blankKindle()])
+    const resolve = pendingDelete(s)
+    s.start()
+    await settle()
+    fireEvent.click(backBtn())
+    await settle()
+    expect(screen.getByLabelText('Chapter')).toBeDisabled()
+    expect(s.onBack).not.toHaveBeenCalled()
+    await resolve(false)
+    expect(s.onBack).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText('Chapter')).toBeEnabled() // the capture stays; nothing is stuck
+  })
+
+  it('a failed delete on Next un-busies the pane and still moves on', async () => {
+    const s = setup([blankKindle('k1'), ready('c2', { chapter: 'two' })])
+    const resolve = pendingDelete(s)
+    s.start()
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await settle()
+    expect(screen.getByLabelText('Chapter')).toBeDisabled()
+    await resolve(false)
+    expect(screen.getByLabelText('Chapter')).toHaveValue('two')
+    expect(screen.getByLabelText('Chapter')).toBeEnabled()
   })
 })
 

@@ -17,7 +17,7 @@ export function expiryPillText(expiresAt: string, now: number = Date.now()): str
   const left = new Date(expiresAt).getTime() - now
   if (Number.isNaN(left)) return 'Expires soon'
   if (left <= 0) return 'Expired — will be deleted soon'
-  if (left < DAY_MS) return 'Expires today'
+  if (left < DAY_MS) return 'Expires within a day'
   const days = Math.floor(left / DAY_MS)
   return `Expires in ${days} ${days === 1 ? 'day' : 'days'}`
 }
