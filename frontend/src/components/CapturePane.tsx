@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MutableRefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { useApi } from '../api/context'
 import { ApiError, type Capture, type ExtractorKind } from '../api/types'
 import { useCaptureDraft } from '../hooks/useCaptureDraft'
@@ -14,6 +14,9 @@ import ReviewFooter from './ReviewFooter'
 export interface PaneActions {
   flush: () => Promise<boolean>
   approve: () => Promise<boolean>
+  // Whether Approve (and so ⌘↵) would do anything right now; the same condition that
+  // disables the footer button, so the shortcut can't act where the button can't.
+  canApprove: () => boolean
 }
 
 interface Props {
@@ -40,7 +43,7 @@ const SAVE_TEXT = { idle: '', unsaved: 'Not saved', saving: 'Saving…', saved: 
 export default function CapturePane(props: Props) {
   const { capture, batchDefaultSlug, extractorName, actionsRef, onSaved, onRefresh } = props
   const api = useApi()
-  const { draft, edit, save, flush } = useCaptureDraft(capture, onSaved)
+  const { draft, edit, save, flush: flushDraft } = useCaptureDraft(capture, onSaved)
   const [actionError, setActionError] = useState<string | null>(null)
   const [gone, setGone] = useState(false)
   // Set by a 409 batch_pushing; cleared (and the held edit re-sent) once a fresh batch
@@ -66,6 +69,8 @@ export default function CapturePane(props: Props) {
   const waiting = status === 'pending' && !!capture.error
   const isGoneNow = gone || (save.kind === 'error' && save.gone)
   const pageOk = pageIsValid(draft)
+  const pageOkRef = useRef(pageOk)
+  pageOkRef.current = pageOk
 
   useEffect(() => {
     mounted.current = true
@@ -86,9 +91,9 @@ export default function CapturePane(props: Props) {
   useEffect(() => {
     if (pushHeld && !props.batchPushing && props.loads > heldAtLoad.current) {
       setPushHeld(false)
-      void flush()
+      void flushDraft()
     }
-  }, [pushHeld, props.batchPushing, props.loads, flush])
+  }, [pushHeld, props.batchPushing, props.loads, flushDraft])
   useEffect(() => {
     // Keyboard navigation keeps focus off the inputs so the next arrow press still works.
     ;(props.focusFirst ? firstField.current : root.current)?.focus()
@@ -97,6 +102,15 @@ export default function CapturePane(props: Props) {
   useEffect(() => {
     if (extractorName) setRetryKind(extractorName)
   }, [extractorName])
+
+  // For user-initiated saves (Approve, Prev/Next, Back): when the only thing stopping them
+  // is an invalid page, say where the problem is by moving focus to it. The autosave
+  // timers and unmount flush use flushDraft directly and must never steal focus.
+  const flush = useCallback(async (): Promise<boolean> => {
+    const ok = await flushDraft()
+    if (!ok && !pageOkRef.current) firstField.current?.focus()
+    return ok
+  }, [flushDraft])
 
   // Runs a user action after saving pending edits; the busy latch stops a double ⌘↵ or
   // click from sending the same transition twice.
@@ -125,7 +139,12 @@ export default function CapturePane(props: Props) {
 
   const patch = async (body: Parameters<typeof api.patchCapture>[1]) => onSaved(await api.patchCapture(capture.id, body))
 
+  // busyRef rather than the `busy` state: it flips synchronously, before any re-render, so
+  // a second keypress in the same tick is already refused.
+  const canApprove = () => !busyRef.current && !readOnly
+
   async function approve(): Promise<boolean> {
+    if (!canApprove()) return false
     // Already-approved captures are editable too, so they still flush (and may be refused)
     // before moving on.
     const ok = await act(async () => {
@@ -141,7 +160,8 @@ export default function CapturePane(props: Props) {
   // successor pane overwrites it, so an unmounting pane must not null it out.
   useEffect(() => {
     // A capture that no longer exists has nothing to save, so leaving it never prompts.
-    actionsRef.current = isGoneNow ? { flush: async () => true, approve: async () => false } : { flush, approve }
+    actionsRef.current = isGoneNow ? { flush: async () => true, approve: async () => false, canApprove: () => false }
+      : { flush, approve, canApprove }
   })
 
   const unapprove = () => void act(() => patch({ status: 'ready' }))
@@ -168,7 +188,8 @@ export default function CapturePane(props: Props) {
 
   if (isGoneNow) return <p role="alert" className="error">This capture no longer exists.</p>
 
-  const problem = actionError ?? (save.kind === 'error' ? save.message : null)
+  // A paused save is explained by the status line alone; an alert would repeat it.
+  const problem = actionError ?? (save.kind === 'error' && !save.pushing ? save.message : null)
   const setHighlight = (key: string, p: object) =>
     edit((d) => ({ ...d, highlights: d.highlights.map((h) => (h.key === key ? { ...h, ...p } : h)) }))
   const retrying = status === 'failed' && rotated
@@ -186,10 +207,17 @@ export default function CapturePane(props: Props) {
           {extractorName && <span className="muted">Extractor: {extractorName}</span>}
           <div role="status" aria-live="polite" className="muted">
             {save.kind === 'error' ? (
-              <>
-                Couldn&apos;t save — retrying…{' '}
-                <button type="button" className="link" onClick={() => void flush()}>Retry now</button>
-              </>
+              save.pushing ? (
+                // The pane resumes by itself once the push is over: nothing for the user to do.
+                'Paused — a push is running; your edits will save when it finishes.'
+              ) : (
+                <>
+                  {save.retrying ? <>Couldn&apos;t save — retrying…</> : 'Not saved'}{' '}
+                  <button type="button" className="link" onClick={() => void flush()}>
+                    {save.retrying ? 'Retry now' : 'Try again'}
+                  </button>
+                </>
+              )
             ) : !pageOk ? (
               'Not saved — fix the page number'
             ) : (
@@ -226,10 +254,15 @@ export default function CapturePane(props: Props) {
         <div className="review-fields">
           <label>
             Page
-            <input ref={firstField} type="number" min={0} step={1} value={draft.page} disabled={readOnly}
+            {/* type=number would swallow bad input to '' (silently clearing the page) and
+                hide it from parsePage; a text field keeps what was typed so it can be flagged. */}
+            <input ref={firstField} type="text" inputMode="numeric" autoComplete="off" value={draft.page}
+              disabled={readOnly}
+              aria-invalid={!pageOk}
+              aria-describedby={pageOk ? undefined : 'page-error'}
               onChange={(e) => edit((d) => ({ ...d, page: e.target.value }))} />
           </label>
-          {!pageOk && <p className="error">{PAGE_ERROR}</p>}
+          {!pageOk && <p id="page-error" role="alert" className="error">{PAGE_ERROR}</p>}
           <label>
             Chapter
             <input value={draft.chapter} disabled={readOnly}

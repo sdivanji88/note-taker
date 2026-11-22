@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useApi } from '../api/context'
-import type { BatchSummary, Book, Health } from '../api/types'
+import { ApiError, type BatchSummary, type Book, type Health } from '../api/types'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ExpiryBanner from '../components/ExpiryBanner'
 import { errorMessage, formatDate } from '../format'
@@ -19,6 +19,7 @@ export default function BatchList({ onOpenBatch, onSettings }: Props) {
   const [booksError, setBooksError] = useState<string | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
   const [discarding, setDiscarding] = useState<string | null>(null)
+  const heading = useRef<HTMLHeadingElement>(null)
 
   const reload = useCallback(async () => {
     // Settled independently: listBooks syncs with the remote and getHealth probes it,
@@ -59,13 +60,23 @@ export default function BatchList({ onOpenBatch, onSettings }: Props) {
     const id = discarding
     setDiscarding(null)
     if (!id) return
+    let failure: string | null = null
     try {
       await api.deleteBatch(id)
-      setError(null)
-      await reload()
     } catch (e) {
-      setError(errorMessage(e))
+      // "Make sure it's gone": a batch that is already missing is the outcome the user asked for.
+      if (!(e instanceof ApiError && e.status === 404 && e.code === 'batch_not_found')) {
+        failure = errorMessage(e)
+      }
     }
+    // Cleared/set before the reload: the reload never clears an error itself, so a failed
+    // discard's message survives it, while a reload failure can still replace it.
+    setError(failure === null ? null : `Couldn't discard the batch: ${failure}. The list has been refreshed.`)
+    // Reload either way: after a failure the row may or may not still exist (e.g. the
+    // delete half-ran), and the list must show the truth rather than the user's guess.
+    await reload()
+    // The Discard button that had focus is gone with its row; park focus somewhere stable.
+    if (failure === null) heading.current?.focus()
   }
 
   const title = (slug: string | null) =>
@@ -74,7 +85,7 @@ export default function BatchList({ onOpenBatch, onSettings }: Props) {
   return (
     <main className="screen">
       <header className="row between">
-        <h1>Note Taker</h1>
+        <h1 ref={heading} tabIndex={-1}>Note Taker</h1>
         <div className="row">
           <button onClick={() => void newBatch()}>New batch</button>
           <button onClick={onSettings}>Settings</button>

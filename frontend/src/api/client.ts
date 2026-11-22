@@ -25,6 +25,8 @@ const EVENT_TYPES: BatchEvent['type'][] = [
   'batch.push_progress'
 ]
 
+export type SubscriptionState = 'live' | 'reconnecting' | 'closed'
+
 export type ApiClient = ReturnType<typeof createClient>
 
 export function createClient(cfg: BackendConfig) {
@@ -112,11 +114,30 @@ export function createClient(cfg: BackendConfig) {
 
     imageUrl: (captureId: string) => withToken(`/captures/${enc(captureId)}/image`),
 
-    subscribe: (batchId: string, onEvent: (e: BatchEvent) => void): (() => void) => {
+    // `onState` lets callers tell "the stream is down" from "nothing is happening": the
+    // browser retries on its own after a drop ('reconnecting') and only gives up for good
+    // ('closed', e.g. the server answered with a non-event-stream status).
+    subscribe: (
+      batchId: string,
+      onEvent: (e: BatchEvent) => void,
+      onState?: (s: SubscriptionState) => void
+    ): (() => void) => {
       const es = new EventSource(withToken(`/batches/${enc(batchId)}/events`))
+      es.onopen = () => onState?.('live')
+      es.onerror = () => onState?.(es.readyState === EventSource.CLOSED ? 'closed' : 'reconnecting')
       for (const type of EVENT_TYPES) {
         es.addEventListener(type, (e) => {
-          onEvent({ type, data: JSON.parse((e as MessageEvent).data) } as BatchEvent)
+          let data: unknown
+          try {
+            data = JSON.parse((e as MessageEvent).data)
+          } catch {
+            // One bad frame must not kill the listener or flip the connection state; the
+            // next event (or a refetch) repairs the view. Never log the payload: it may
+            // hold highlight text.
+            console.warn(`dropped malformed ${type} event`)
+            return
+          }
+          onEvent({ type, data } as BatchEvent)
         })
       }
       return () => es.close()

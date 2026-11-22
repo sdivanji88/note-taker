@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import BatchGrid from '../src/screens/BatchGrid'
 import { ApiError, type CaptureStatus } from '../src/api/types'
 import { batch, capture, fakeClient, renderWith } from './helpers'
@@ -262,5 +262,143 @@ describe('BatchGrid', () => {
     expect(within(t).getByTitle(evil)).toBeInTheDocument()
     expect(within(t).getByAltText(/page 12/i)).toBeInTheDocument()
     expect(container.querySelectorAll('img')).toHaveLength(1)
+  })
+})
+
+describe('BatchGrid numbering and Review button', () => {
+  const withCaptures = (caps: ReturnType<typeof capture>[], over = {}) => {
+    const f = fakeClient({ getBatch: vi.fn().mockResolvedValue(batch(caps)) })
+    grid(f.client, over)
+    return f
+  }
+  const reviewButton = () => screen.getByRole('button', { name: /^review/i })
+
+  it('numbers thumbnails among reviewable-set captures, skipping hidden pushed ones', async () => {
+    const onOpenReview = vi.fn()
+    withCaptures(
+      [capture('x1', 'pushed'), capture('x2', 'pushed'), capture('r1', 'ready'), capture('r2', 'ready')],
+      { onOpenReview }
+    )
+    await screen.findByTestId('thumb-r1')
+    expect(screen.getByRole('button', { name: 'Open Photo, 1' })).toBeInTheDocument()
+    const second = screen.getByRole('button', { name: 'Open Photo, 2' })
+    expect(reviewButton()).toHaveTextContent('Review 1 of 2 →')
+    // The callback still speaks in full-array indices (pushed ones included).
+    fireEvent.click(second)
+    expect(onOpenReview).toHaveBeenCalledWith(3)
+  })
+
+  it('gives discarded captures no number and keeps the count to the rest', async () => {
+    withCaptures([capture('d1', 'discarded', { page: 12 }), capture('r1', 'ready')])
+    const discarded = await screen.findByTestId('thumb-d1')
+    expect(within(discarded).getByLabelText('Select Photo (discarded), page 12')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open Photo, 1' })).toBeInTheDocument()
+    expect(reviewButton()).toHaveTextContent('Review 1 of 1 →')
+  })
+
+  it('an empty batch says so and disables Review without ever rendering "of 0"', async () => {
+    withCaptures([])
+    expect(await screen.findByText('No photos yet. Drop photos above, or add a Kindle highlight.')).toBeInTheDocument()
+    expect(reviewButton()).toHaveTextContent(/^Review →$/)
+    expect(reviewButton()).toBeDisabled()
+    expect(reviewButton()).toHaveAttribute('title', 'Nothing to review yet')
+    expect(screen.queryByText(/of 0/)).toBeNull()
+  })
+
+  it('a batch with nothing left to review is not described as empty', async () => {
+    withCaptures([capture('x1', 'pushed'), capture('d1', 'discarded')])
+    expect(await screen.findByText('Nothing left to review in this batch.')).toBeInTheDocument()
+    expect(reviewButton()).toBeDisabled()
+    expect(reviewButton()).toHaveAttribute('title', 'Nothing to review yet')
+    expect(screen.queryByText(/of 0/)).toBeNull()
+  })
+
+  it('while only extracting, Review waits instead of claiming a position', async () => {
+    withCaptures([capture('e1', 'extracting')])
+    await screen.findByTestId('thumb-e1')
+    expect(reviewButton()).toHaveTextContent(/^Review →$/)
+    expect(reviewButton()).toBeDisabled()
+    expect(reviewButton()).toHaveAttribute('title', 'Waiting for extraction')
+    expect(screen.queryByText(/nothing left|no photos yet/i)).toBeNull()
+  })
+
+  it('shows the position of the first reviewable capture within the navigable ones', async () => {
+    withCaptures([capture('e1', 'extracting'), capture('d1', 'discarded'), capture('r1', 'ready')])
+    await screen.findByTestId('thumb-r1')
+    expect(reviewButton()).toHaveTextContent('Review 2 of 2 →')
+  })
+})
+
+describe('BatchGrid live-update status', () => {
+  const settle = (ms = 0) => act(async () => { await vi.advanceTimersByTimeAsync(ms) })
+  afterEach(() => vi.useRealTimers())
+
+  async function mounted() {
+    vi.useFakeTimers()
+    const f = fakeClient()
+    const view = grid(f.client)
+    await settle()
+    return { ...f, view }
+  }
+
+  it('renders an always-mounted, empty status region while live', async () => {
+    const { client } = await mounted()
+    const status = screen.getByRole('status')
+    expect(status).toBeEmptyDOMElement()
+    expect(status).toHaveAttribute('aria-live', 'polite')
+    expect(screen.queryByText(/may be stale/i)).toBeNull()
+    expect(client.getBatch).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows "reconnecting" only after 2000ms without a reopen', async () => {
+    const { setConnection } = await mounted()
+    act(() => setConnection('reconnecting'))
+    await settle(1999)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    await settle(1)
+    expect(screen.getByRole('status')).toHaveTextContent('Live updates interrupted — reconnecting…')
+  })
+
+  it('a quick reopen never shows the banner, and repeated errors do not postpone it', async () => {
+    const { setConnection, client } = await mounted()
+    act(() => setConnection('reconnecting'))
+    await settle(1500)
+    act(() => setConnection('reconnecting')) // another failed retry
+    await settle(500)
+    expect(screen.getByRole('status')).toHaveTextContent(/reconnecting/)
+    act(() => setConnection('live'))
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    await settle(0)
+    expect(client.getBatch).toHaveBeenCalledTimes(2) // exactly one catch-up refetch
+  })
+
+  it('going live again clears the text and refetches once', async () => {
+    const { setConnection, client } = await mounted()
+    act(() => setConnection('reconnecting'))
+    await settle(2000)
+    act(() => setConnection('live'))
+    await settle(0)
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(client.getBatch).toHaveBeenCalledTimes(2)
+    act(() => setConnection('live')) // a repeated open is not a transition
+    await settle(0)
+    expect(client.getBatch).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows "closed" immediately and points at Refresh', async () => {
+    const { setConnection } = await mounted()
+    act(() => setConnection('closed'))
+    expect(screen.getByRole('status')).toHaveTextContent('Live updates stopped. Use Refresh to update.')
+  })
+
+  it('unmounting before the grace period ends leaves no pending timer or warning', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { setConnection, view } = await mounted()
+    act(() => setConnection('reconnecting'))
+    view.unmount()
+    await settle(5000)
+    expect(error).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    error.mockRestore()
   })
 })

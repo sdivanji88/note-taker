@@ -134,4 +134,53 @@ describe('BatchList', () => {
     expect(await screen.findByText(/could not check the notes repo: health down/i)).toBeInTheDocument()
     expect(screen.queryByRole('alert')).toBeNull()
   })
+
+  describe('discard failures', () => {
+    async function discardFirst(client: ReturnType<typeof fakeClient>['client']) {
+      list(client)
+      fireEvent.click(await screen.findByRole('button', { name: /discard/i }))
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^discard$/i }))
+    }
+
+    it('a failed delete reloads the list and keeps the error visible', async () => {
+      const { client } = fakeClient({
+        listBatches: vi.fn().mockResolvedValue([summary('a')]),
+        deleteBatch: vi.fn().mockRejectedValue(new ApiError(500, 'boom', 'disk full'))
+      })
+      await discardFirst(client)
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "Couldn't discard the batch: disk full. The list has been refreshed."
+      )
+      await waitFor(() => expect(client.listBatches).toHaveBeenCalledTimes(2))
+      // The reload must not wipe the message it was triggered to accompany.
+      expect(screen.getByRole('alert')).toHaveTextContent(/Couldn't discard the batch/)
+      expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    })
+
+    it('a 404 on delete means it is already gone: no error, list reloaded', async () => {
+      const { client } = fakeClient({
+        listBatches: vi.fn().mockResolvedValueOnce([summary('a')]).mockResolvedValue([]),
+        deleteBatch: vi.fn().mockRejectedValue(new ApiError(404, 'batch_not_found', 'no such batch'))
+      })
+      await discardFirst(client)
+      await waitFor(() => expect(client.listBatches).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(screen.queryByRole('button', { name: /resume/i })).toBeNull())
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    it('success clears an earlier error and moves focus to the heading', async () => {
+      const { client } = fakeClient({
+        listBatches: vi.fn().mockResolvedValueOnce([summary('a'), summary('b')]).mockResolvedValue([summary('b')]),
+        createBatch: vi.fn().mockRejectedValue(new ApiError(500, 'x', 'earlier failure'))
+      })
+      list(client)
+      fireEvent.click(await screen.findByRole('button', { name: /new batch/i }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('earlier failure')
+      fireEvent.click(screen.getAllByRole('button', { name: /discard/i })[0])
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^discard$/i }))
+      await waitFor(() => expect(screen.getAllByRole('button', { name: /resume/i })).toHaveLength(1))
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Note Taker' }))
+    })
+  })
 })

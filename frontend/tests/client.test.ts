@@ -115,6 +115,11 @@ describe('subscribe', () => {
     static last: FakeEventSource
     listeners = new Map<string, (e: MessageEvent) => void>()
     closed = false
+    // EventSource.CLOSED is 2; the real constant is not available under jsdom-less stubs.
+    static CLOSED = 2
+    readyState = 0
+    onopen: (() => void) | null = null
+    onerror: (() => void) | null = null
     constructor(public url: string) {
       FakeEventSource.last = this
     }
@@ -141,5 +146,43 @@ describe('subscribe', () => {
 
     stop()
     expect(es.closed).toBe(true)
+  })
+
+  it('reports live / reconnecting / closed through onState', () => {
+    const states: string[] = []
+    createClient(cfg).subscribe('b1', vi.fn(), (st) => states.push(st))
+    const es = FakeEventSource.last
+    es.onopen?.()
+    es.readyState = 0 // browser is retrying
+    es.onerror?.()
+    es.onopen?.()
+    es.readyState = FakeEventSource.CLOSED // browser gave up
+    es.onerror?.()
+    expect(states).toEqual(['live', 'reconnecting', 'live', 'closed'])
+  })
+
+  it('works without an onState callback', () => {
+    createClient(cfg).subscribe('b1', vi.fn())
+    const es = FakeEventSource.last
+    expect(() => {
+      es.onopen?.()
+      es.onerror?.()
+    }).not.toThrow()
+  })
+
+  it('drops a malformed frame without throwing, logging its payload, or losing later frames', () => {
+    const onEvent = vi.fn()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    createClient(cfg).subscribe('b1', onEvent)
+    const handler = FakeEventSource.last.listeners.get('capture.extracted')!
+    expect(() => handler({ data: '{not json: secret-payload' } as MessageEvent)).not.toThrow()
+    expect(onEvent).not.toHaveBeenCalled()
+    expect(warn.mock.calls.flat().join(' ')).toContain('capture.extracted')
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('secret-payload')
+
+    const data = { capture_id: 'c1' }
+    handler({ data: JSON.stringify(data) } as MessageEvent)
+    expect(onEvent).toHaveBeenCalledWith({ type: 'capture.extracted', data })
+    warn.mockRestore()
   })
 })

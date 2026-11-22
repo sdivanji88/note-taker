@@ -121,6 +121,18 @@ export function reviewErrorMessage(e: unknown): string {
   return errorMessage(e)
 }
 
+// The alert text for a failed autosave. The prefix says what the user can expect: a
+// conflict or rejection will fail again unchanged, so it must not read like a blip.
+export function saveErrorMessage(e: unknown): string {
+  const detail = reviewErrorMessage(e)
+  if (e instanceof ApiError && !isTransient(e)) {
+    if (e.status === 409) return `Couldn't save — conflict: ${detail}`
+    if (e.status === 422) return `Couldn't save — not accepted: ${detail}`
+    if (e.status !== 404) return `Couldn't save: ${detail}`
+  }
+  return detail
+}
+
 export const isGone = (e: unknown) => e instanceof ApiError && e.status === 404
 export const isPushing = (e: unknown) => e instanceof ApiError && e.code === 'batch_pushing'
 // Worth retrying on its own: the server never saw (or never finished) the request.
