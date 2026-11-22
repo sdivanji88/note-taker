@@ -110,3 +110,23 @@ def test_sync_uses_its_own_short_timeout(tmp_path, shim, monkeypatch):
     start = time.monotonic()
     svc.sync()  # swallows the timeout: a listing never fails because of the remote
     assert time.monotonic() - start < 5
+
+
+def test_recover_uses_short_fetch_timeout(tmp_path, data_paths, bare_remote, shim, monkeypatch):
+    # recover() runs in the FastAPI lifespan before /ping; Electron gives up at 20s.
+    # A hanging fetch must use _SYNC_TIMEOUT_S, not the 60s network default.
+    from push_helpers import _mark_pushing, add_batch, push_env
+
+    from note_taker.models import BatchStatus, CaptureStatus
+
+    env = push_env(tmp_path, data_paths, bare_remote)
+    batch = add_batch(env, "dune")
+    _mark_pushing(env, batch)
+    shim('case "$*" in *fetch*) exec sleep 10;; esac; exit 0')
+    monkeypatch.setattr(push_service, "_SYNC_TIMEOUT_S", 0.5)
+    start = time.monotonic()
+    env.svc.recover()
+    assert time.monotonic() - start < 5
+    after = env.store.get(batch.id)
+    assert after.status == BatchStatus.open
+    assert after.captures[0].status == CaptureStatus.approved
