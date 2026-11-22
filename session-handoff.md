@@ -2,7 +2,7 @@
 
 > Read this at the start of every session. Update it before ending every session.
 
-**Last updated:** 2026-11-22 (Session 5: v1 open gaps — recover timeout, gates, smoke)
+**Last updated:** 2026-11-22 (PR #3 merged to main — v1 open gaps closed)
 
 ---
 
@@ -15,8 +15,7 @@
 
 1. Optional polish from `docs/deferred-findings.md` (“Should fix soon”: origin URL normalize, settings quarantine, UI, etc.).
 2. Optional HSV tuning on real GPS fixture photos.
-3. Merge/PR `fix/recover-fetch-timeout` into main.
-4. Packaging still out of scope (dev-mode only).
+3. Packaging still out of scope (dev-mode only).
 
 ## Blockers / decisions made
 
@@ -36,4 +35,4 @@
 
 ## Next session — start here
 
-Merge `fix/recover-fetch-timeout` (or open a PR). Then optional deferred polish. v1 product gates are clear.
+`main` includes PR #2 (Ollama/Tesseract/e2e) and PR #3 (`recover()` timeout + gate hygiene). v1 product gates are clear. Next is optional polish from `docs/deferred-findings.md`, or stop.
