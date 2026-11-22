@@ -62,6 +62,19 @@ def test_bookkeeping_failure_reopens_the_batch_and_raises(env, monkeypatch):
     assert {"stage": "done"} not in sent
 
 
+def test_batch_deleted_mid_push_counts_as_done_not_bookkeeping_failure(env):
+    batch = _batch(env)
+    # The user discards the whole batch while the push is in flight.
+    env.events.hooks["pushing"] = lambda: env.store.delete(batch.id)
+
+    result = env.svc.push(batch.id)
+
+    assert result.batch_deleted is True
+    assert result.highlights_written == 1
+    assert env.events.stages[-1] == "done"
+    assert remote_text(env) is not None
+
+
 def test_bookkeeping_failure_is_logged_with_traceback(env, monkeypatch, caplog):
     batch = _batch(env)
     fail_modify_while_pushing(env.store, monkeypatch, times=1)

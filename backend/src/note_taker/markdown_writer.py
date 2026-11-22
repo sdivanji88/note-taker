@@ -21,8 +21,13 @@ def _note_block(note: str) -> str:
     # Continuation lines are indented so no line of a note can start at column 0, which is
     # the only place a marker is recognised. splitlines() (not split("\n")) because the
     # marker check normalises \r and \r\n, and other Unicode separators render as breaks.
-    first, *rest = note.splitlines()
-    return "\n".join([f"**Note:** {first}", *(f"  {line}" if line else "" for line in rest)])
+    # Their own leading whitespace is dropped: on top of our 2 spaces it would reach 4 (or a
+    # tab) and render as a code block. lstrip() on the note also keeps leading blank lines
+    # from leaving "**Note:** " dangling with nothing after it.
+    first, *rest = note.lstrip().splitlines()
+    return "\n".join(
+        [f"**Note:** {first}", *(f"  {line.lstrip()}" if line.strip() else "" for line in rest)]
+    )
 
 
 def _heading(capture: Capture, tz: tzinfo) -> str:

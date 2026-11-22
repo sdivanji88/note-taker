@@ -154,11 +154,16 @@ class PushService:
                     c.status = CaptureStatus.pushed
             b.status = BatchStatus.open
 
+        gone = False
         try:
             self._store.modify(batch_id, finish, touch=True)
+        except BatchNotFound:
+            # Discarded while we pushed: nothing is left to mark, which is the same end
+            # state a successful finish-and-delete reaches.
+            gone = True
         except Exception as exc:  # noqa: BLE001  # any failure here has the same remedy: push again
             self._bookkeeping_failed(batch_id, sha, exc)
-        deleted = self._tidy_after_push(batch_id)
+        deleted = self._tidy_after_push(batch_id) or gone
         self._progress(batch_id, "done")
         log.info(
             "push done batch=%s commit=%s highlights=%d files=%d deleted=%s",
@@ -270,9 +275,17 @@ class PushService:
         fine. The message is already credential-masked and names actual and expected.
         Shown on /health so the user sees it before a push fails; sync() keeps logging
         the same condition at info level because it is routine there, not a warning.
+
+        None while a push or sync holds the clone too: mid pull --rebase HEAD is briefly
+        detached, and /health polling must not flash a false wrong_branch at the user.
         """
-        git = self._git_factory()
-        return self._clone_mismatch(git) if git.is_cloned() else None
+        if not _PUSH_LOCK.acquire(blocking=False):
+            return None
+        try:
+            git = self._git_factory()
+            return self._clone_mismatch(git) if git.is_cloned() else None
+        finally:
+            _PUSH_LOCK.release()
 
     def _clone_mismatch(self, git: GitPublisher) -> PushError | None:
         # Pushing does `HEAD:refs/heads/<branch>`, so from any other branch it would

@@ -1,8 +1,10 @@
 import json
 import logging
+import threading
 
 import pytest
 
+from note_taker import settings_store
 from note_taker.jsonio import quarantine, write_json_atomic
 from note_taker.models import ExtractorKind, Settings
 from note_taker.settings_store import SettingsStore
@@ -73,3 +75,29 @@ def test_valid_settings_are_not_quarantined(data_paths):
     data_paths.settings_file.write_text(json.dumps(Settings().model_dump(mode="json")))
     SettingsStore(data_paths).load()
     assert not data_paths.settings_file.with_name("settings.json.corrupt").exists()
+
+
+def test_load_does_not_quarantine_a_file_saved_between_read_and_quarantine(data_paths, monkeypatch):
+    # A save landing after load() read corrupt bytes must not be moved aside: that
+    # would silently discard the user's just-saved settings.
+    data_paths.root.mkdir(parents=True, exist_ok=True)
+    data_paths.settings_file.write_text("{nope")
+    store = SettingsStore(data_paths)
+    saved = Settings()
+    saved.notes_repo.branch = "fresh"
+    saver = threading.Thread(target=store.save, args=(saved,))
+    real_read = settings_store.read_json
+
+    def read_then_race_a_save(path):
+        try:
+            return real_read(path)
+        finally:
+            saver.start()
+            saver.join(timeout=0.3)  # blocked behind load() if the store serialises them
+
+    with monkeypatch.context() as m:
+        m.setattr(settings_store, "read_json", read_then_race_a_save)
+        assert store.load() == Settings()  # what load() read was corrupt
+    saver.join()
+
+    assert SettingsStore(data_paths).load().notes_repo.branch == "fresh"

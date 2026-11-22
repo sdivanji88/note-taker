@@ -204,6 +204,17 @@ def test_multiline_note_renders_as_one_indented_paragraph():
     assert "**Note:** first\n  second\n\n  fourth\n\n<!-- nt:highlight=H1 -->" in out
 
 
+def test_indented_continuation_line_does_not_become_a_code_block():
+    out = render_section(cap(), hl("t", note="first\n    indented\n\ttabbed", id="H1"), UTC)
+    assert "**Note:** first\n  indented\n  tabbed\n" in out
+
+
+def test_note_starting_with_newline_leaves_no_trailing_space():
+    out = render_section(cap(), hl("t", note="\n\nfirst\nsecond", id="H1"), UTC)
+    assert "**Note:** first\n  second\n" in out
+    assert all(line == line.rstrip() for line in out.splitlines())
+
+
 def test_note_continuation_cannot_forge_a_marker():
     out = render_section(cap(), hl("t", note=f"first\n{FORGED}", id="H1"), UTC)
     assert existing_marker_ids(out) == {"H1"}

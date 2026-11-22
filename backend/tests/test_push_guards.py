@@ -17,7 +17,7 @@ from push_helpers import add_batch, git, push_env, remote_text
 
 from note_taker.git_publisher import GitPublisher
 from note_taker.models import Kind
-from note_taker.push_service import PushError
+from note_taker.push_service import _PUSH_LOCK, PushError
 
 
 @pytest.fixture
@@ -82,20 +82,48 @@ def test_push_refuses_remote_mismatch_with_masked_message(env, tmp_path):
     assert env.store.get(batch.id) == batch
 
 
-@pytest.mark.parametrize("configure", [lambda url: url[: -len(".git")], lambda url: url + "/"])
-def test_push_accepts_origin_that_differs_only_by_git_suffix_or_slash(env, configure):
+@pytest.mark.parametrize(
+    "configured",
+    ["https://example.test/notes", "https://example.test/notes.git/"],
+)
+def test_push_accepts_origin_that_differs_only_by_git_suffix_or_slash(env, configured):
+    # Suffix/slash are only cosmetic for URLs, not for filesystem paths, so the clone's
+    # origin is a URL that git rewrites (insteadOf) to the real local bare repo.
+    alias = "https://example.test/notes.git"
+    git(env.clone, "config", f"url.{env.remote}.insteadOf", alias)
+    git(env.clone, "remote", "set-url", "origin", alias)
     env.books.create("Dune", None, Kind.fiction)
     batch = add_batch(env, "dune")
-    env.settings.notes_repo.remote_url = configure(str(env.remote))  # origin keeps the real URL
+    env.settings.notes_repo.remote_url = configured
 
     assert env.svc.push(batch.id).highlights_written == 1
     assert remote_text(env) is not None
+
+
+def test_push_refuses_origin_path_differing_by_git_suffix(env):
+    # /x/remote.git and /x/remote are different directories: refusing is the safe error.
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune")
+    env.settings.notes_repo.remote_url = str(env.remote)[: -len(".git")]
+    with pytest.raises(PushError) as e:
+        env.svc.push(batch.id)
+    assert e.value.code == "remote_mismatch"
+    assert remote_text(env) is None
 
 
 def test_clone_problem_is_none_for_a_healthy_clone_and_a_missing_one(env):
     assert env.svc.clone_problem() is None
     shutil.rmtree(env.clone)
     assert env.svc.clone_problem() is None
+
+
+def test_clone_problem_is_none_while_a_push_holds_the_clone(env):
+    # A push is mid pull --rebase: HEAD may be briefly detached, so /health must not
+    # report a branch problem it cannot yet judge.
+    git(env.clone, "checkout", "--detach")
+    with _PUSH_LOCK:
+        assert env.svc.clone_problem() is None
+    assert env.svc.clone_problem().code == "wrong_branch"
 
 
 def test_clone_problem_names_the_wrong_branch(env):

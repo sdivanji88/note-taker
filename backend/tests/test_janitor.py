@@ -129,6 +129,13 @@ def test_corrupt_batch_does_not_stop_healthy_expired_one(store, clock, data_path
     assert report.warned == [healthy.id]
 
 
+def test_stray_file_in_batches_dir_does_not_stop_the_janitor(store, clock, data_paths):
+    healthy = store.create(None)
+    (data_paths.batches_dir / ".DS_Store").write_bytes(b"\x00")
+    clock.t = START + timedelta(days=40)
+    assert _janitor(store, clock).run().warned == [healthy.id]
+
+
 def test_list_raising_yields_empty_report(clock):
     class Broken:
         def list(self):

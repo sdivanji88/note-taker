@@ -67,6 +67,7 @@ class BatchStore:
     def __init__(self, paths: DataPaths, now: Callable[[], datetime] = utcnow):
         self._paths = paths
         self._now = now
+        self._reported_unreadable: set[str] = set()
 
     def create(self, default_book_slug: str | None) -> Batch:
         with _LOCK:
@@ -88,9 +89,11 @@ class BatchStore:
     def list(self) -> list[Batch]:
         """Every readable batch, oldest first.
 
-        An unreadable batch.json is skipped (and logged) rather than raised: callers like
-        the batch list, startup and the janitor need every other batch, and a
-        traceback per call would flood the log for one bad file.
+        Anything that isn't a readable batch is skipped rather than raised: callers like
+        the batch list, startup and the janitor need every other batch, and one stray
+        file (Finder's .DS_Store) or bad batch.json must not take them all down. A bad
+        batch is warned about once per process, then logged quietly, because the
+        janitor and UI list repeatedly and would flood the log with the same line.
         """
         with _LOCK:
             root = self._paths.batches_dir
@@ -98,12 +101,20 @@ class BatchStore:
                 return []
             batches = []
             for d in root.iterdir():
+                if not d.is_dir():
+                    continue
                 try:
                     data = read_json(d / "batch.json")
                     if data is not None:
                         batches.append(Batch.model_validate(data))
-                except ValueError as exc:  # JSON, UnicodeDecode and pydantic validation errors
-                    log.warning("skipping unreadable batch %s: %s", d.name, exc)
+                # ValueError: JSON, UnicodeDecode and pydantic validation errors.
+                except (ValueError, OSError) as exc:
+                    first = d.name not in self._reported_unreadable
+                    self._reported_unreadable.add(d.name)
+                    log.log(
+                        logging.WARNING if first else logging.DEBUG,
+                        "skipping unreadable batch %s: %s", d.name, exc,
+                    )
         return sorted(batches, key=lambda b: b.created_at)
 
     def save(self, batch: Batch, touch: bool = True) -> Batch:

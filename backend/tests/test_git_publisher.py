@@ -237,7 +237,6 @@ def test_is_dirty_sees_untracked_books_despite_user_config(pub):
         ("https://a:b@github.com/me/notes", "https://c@github.com/me/notes"),
         ("git@github.com:me/notes.git", "git@github.com:me/notes"),
         ("ssh://git@github.com/me/notes.git/", "ssh://git@github.com/me/notes"),
-        ("/srv/git/notes.git", "/srv/git/notes"),
     ],
 )
 def test_same_remote_treats_url_equivalents_as_equal(a, b):
@@ -255,6 +254,13 @@ def test_same_remote_treats_url_equivalents_as_equal(a, b):
         ("https://github.com/me/notes", "http://github.com/me/notes"),
         ("https://github.com/me/notes", "https://gitlab.com/me/notes"),
         ("https://github.com/me/notes", ""),
+        # Only ONE ".git" is a cosmetic suffix; a repo may really be called "x.git".
+        ("https://github.com/o/x.git.git", "https://github.com/o/x.git"),
+        ("git@github.com:o/x.git.git", "git@github.com:o/x.git"),
+        # Filesystem paths: /srv/r.git and /srv/r are different directories.
+        ("/srv/r.git", "/srv/r"),
+        ("/srv/r/", "/srv/r"),
+        ("file:///srv/r.git", "file:///srv/r"),
     ],
 )
 def test_same_remote_keeps_genuinely_different_remotes_apart(a, b):
