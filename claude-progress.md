@@ -189,3 +189,13 @@
 **Benchmark Results**: architecture-review ~107s wall clock with `agent`.
 
 **Next session**: Merge PR #4; optional soft code-review with `agent`; triage "Found while polishing".
+
+### Session 6c -- 2026-11-22 (PR #4 merged)
+
+**Goal**: Record merge of deferred-findings polish.
+
+**What was done**:
+- Confirmed PR #4 MERGED (`0a6fda2`); fast-forwarded local `main`.
+- Deleted local and remote `polish/deferred-findings`.
+
+**Next session**: Triage "Found while polishing" or clean leftover branches/worktrees.
