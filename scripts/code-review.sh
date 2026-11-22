@@ -34,10 +34,21 @@ if [ -z "$DIFF_CONTENT" ]; then
   exit 0
 fi
 
-# Invoke claude headless to produce the review. Falls back to a placeholder if claude isn't installed.
-if command -v claude > /dev/null 2>&1; then
+# Prefer Cursor Agent headless; fall back to Claude Code CLI.
+LLM_CMD=""
+if command -v agent > /dev/null 2>&1; then
+  LLM_CMD="agent"
+elif command -v cursor-agent > /dev/null 2>&1; then
+  LLM_CMD="cursor-agent"
+elif command -v claude > /dev/null 2>&1; then
+  LLM_CMD="claude"
+fi
+
+if [ -n "$LLM_CMD" ]; then
   PROMPT=$(cat <<'EOF'
 You are reviewing a code diff for correctness, clarity, and adherence to the architecture rules in docs/architecture-rules.md.
+
+You are read-only. Do not edit files or run mutating commands.
 
 Output a markdown report with these sections:
 
@@ -58,15 +69,23 @@ EOF
   echo "$PROMPT" > /tmp/code-review-prompt.txt
   echo "$DIFF_CONTENT" >> /tmp/code-review-prompt.txt
 
-  claude -p "$(cat /tmp/code-review-prompt.txt)" > "$REPORT_FILE" 2>&1 || {
-    echo "⚠ claude -p failed; writing placeholder report."
-    echo "# Code review (placeholder)" > "$REPORT_FILE"
-    echo "claude CLI invocation failed. Run \`claude\` manually with the diff above." >> "$REPORT_FILE"
-  }
+  if [ "$LLM_CMD" = "claude" ]; then
+    "$LLM_CMD" -p "$(cat /tmp/code-review-prompt.txt)" > "$REPORT_FILE" 2>&1 || {
+      echo "⚠ $LLM_CMD -p failed; writing placeholder report."
+      echo "# Code review (placeholder)" > "$REPORT_FILE"
+      echo "\`$LLM_CMD\` invocation failed." >> "$REPORT_FILE"
+    }
+  else
+    "$LLM_CMD" -p --mode ask --output-format text "$(cat /tmp/code-review-prompt.txt)" > "$REPORT_FILE" 2>&1 || {
+      echo "⚠ $LLM_CMD -p failed; writing placeholder report."
+      echo "# Code review (placeholder)" > "$REPORT_FILE"
+      echo "\`$LLM_CMD\` invocation failed." >> "$REPORT_FILE"
+    }
+  fi
   rm -f /tmp/code-review-prompt.txt
 else
   echo "# Code review (placeholder)" > "$REPORT_FILE"
-  echo "claude CLI not found in PATH — install it to enable LLM-driven code review." >> "$REPORT_FILE"
+  echo "No headless LLM in PATH (need \`agent\` / \`cursor-agent\` or \`claude\`)." >> "$REPORT_FILE"
 fi
 
 echo "✓ Code review report written to $REPORT_FILE (soft gate — not blocking)"

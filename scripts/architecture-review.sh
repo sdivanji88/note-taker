@@ -105,19 +105,34 @@ fi
 echo "## Stage 2 — LLM audit against docs/architecture-rules.md" >> "$REPORT_FILE"
 echo "" >> "$REPORT_FILE"
 
+# Prefer Cursor Agent headless (`agent -p`); fall back to Claude Code CLI.
+LLM_CMD=""
+if command -v agent > /dev/null 2>&1; then
+  LLM_CMD="agent"
+elif command -v cursor-agent > /dev/null 2>&1; then
+  LLM_CMD="cursor-agent"
+elif command -v claude > /dev/null 2>&1; then
+  LLM_CMD="claude"
+fi
+
 if [ ! -f "docs/architecture-rules.md" ]; then
   echo "**SKIP:** docs/architecture-rules.md not found." >> "$REPORT_FILE"
-elif ! command -v claude > /dev/null 2>&1; then
-  echo "**SKIP:** claude CLI not in PATH." >> "$REPORT_FILE"
+elif [ -z "$LLM_CMD" ]; then
+  echo "**SKIP:** no headless LLM in PATH (need \`agent\` / \`cursor-agent\` or \`claude\`)." >> "$REPORT_FILE"
 else
-  # Get the relevant diff (staged or HEAD~1..HEAD)
+  # Prefer the branch-vs-main range on a feature branch; else staged / last commit.
   if git rev-parse --git-dir > /dev/null 2>&1; then
     if ! git diff --cached --quiet 2>/dev/null; then
       DIFF=$(git diff --cached 2>/dev/null)
-    elif git rev-parse HEAD > /dev/null 2>&1; then
-      DIFF=$(git diff HEAD~1..HEAD 2>/dev/null || echo "")
     else
-      DIFF=""
+      BASE=$(git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null || true)
+      if [ -n "${BASE:-}" ] && [ "$BASE" != "$(git rev-parse HEAD)" ]; then
+        DIFF=$(git diff "$BASE"...HEAD 2>/dev/null || echo "")
+      elif git rev-parse HEAD > /dev/null 2>&1; then
+        DIFF=$(git diff HEAD~1..HEAD 2>/dev/null || echo "")
+      else
+        DIFF=""
+      fi
     fi
   else
     DIFF=""
@@ -131,9 +146,11 @@ else
     cat > "$PROMPT_FILE" <<EOF
 Audit the following code diff against these architecture rules. Be strict — flag any HIGH-CONFIDENCE violation. Skip low-confidence concerns.
 
+You are read-only. Do not edit files or run mutating commands.
+
 Output:
-- If no violations: print exactly "PASS"
-- If violations: print "FAIL" then a bulleted list of (file:line, rule violated, why).
+- If no violations: print exactly "PASS" as the first line (optional brief notes after).
+- If violations: print "FAIL" as the first line, then a bulleted list of (file:line, rule violated, why).
 
 Rules:
 $RULES
@@ -141,14 +158,30 @@ $RULES
 Diff:
 $DIFF
 EOF
-    AUDIT=$(claude -p "$(cat "$PROMPT_FILE")" 2>&1 || echo "AUDIT_ERROR")
+    # agent/cursor-agent: --print --mode ask (read-only). claude: -p.
+    if [ "$LLM_CMD" = "claude" ]; then
+      AUDIT=$("$LLM_CMD" -p "$(cat "$PROMPT_FILE")" 2>&1 || echo "AUDIT_ERROR")
+    else
+      AUDIT=$("$LLM_CMD" -p --mode ask --output-format text "$(cat "$PROMPT_FILE")" 2>&1 || echo "AUDIT_ERROR")
+    fi
     rm -f "$PROMPT_FILE"
 
+    echo "_LLM:_ \`$LLM_CMD\`" >> "$REPORT_FILE"
+    echo "" >> "$REPORT_FILE"
     echo '```' >> "$REPORT_FILE"
     echo "$AUDIT" >> "$REPORT_FILE"
     echo '```' >> "$REPORT_FILE"
 
-    if echo "$AUDIT" | head -1 | grep -qi "^FAIL"; then
+    # First non-empty line decides pass/fail (agents sometimes prepend chatter).
+    FIRST=$(echo "$AUDIT" | sed '/./,$!d' | head -1)
+    if echo "$FIRST" | grep -qi "^FAIL"; then
+      FAILED=1
+    elif echo "$AUDIT" | grep -q "AUDIT_ERROR"; then
+      FAILED=1
+    elif ! echo "$FIRST" | grep -qi "^PASS"; then
+      # Ambiguous output is a fail: the gate must not soft-pass on chatter.
+      echo "" >> "$REPORT_FILE"
+      echo "**FAIL:** LLM audit did not start with PASS or FAIL." >> "$REPORT_FILE"
       FAILED=1
     fi
   fi

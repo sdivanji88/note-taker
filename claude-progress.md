@@ -171,3 +171,21 @@
   - `scripts/code-review.sh` exit 0: placeholder only (see Issues).
 
 **Next session**: Re-authenticate the `claude` CLI and re-run `scripts/architecture-review.sh` and `scripts/code-review.sh`, then push `polish/deferred-findings` and open the PR.
+
+### Session 6b -- 2026-11-22 (architecture LLM via Cursor agent)
+
+**Goal**: Complete architecture-review Stage 2 without Claude CLI (headless Cursor Agent).
+
+**What was done**:
+- Updated `scripts/architecture-review.sh` and `scripts/code-review.sh` to prefer `agent` / `cursor-agent` (`-p --mode ask --output-format text`), fall back to `claude`; architecture uses merge-base `main...HEAD` diff; fail on ambiguous audit output.
+- Ran `bash scripts/architecture-review.sh`: exit 0, LLM=`agent`, PASS (~107s, ~275KB branch diff).
+- Struck the Claude-OAuth blocker in `docs/deferred-findings.md`; refreshed `session-handoff.md`.
+
+**Decisions**:
+- Cursor Agent is the primary headless LLM for local gates when Claude is unavailable.
+
+**Issues**: none for the architecture hard gate.
+
+**Benchmark Results**: architecture-review ~107s wall clock with `agent`.
+
+**Next session**: Merge PR #4; optional soft code-review with `agent`; triage "Found while polishing".
