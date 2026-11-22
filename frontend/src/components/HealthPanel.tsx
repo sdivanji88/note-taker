@@ -28,6 +28,22 @@ export default function HealthPanel({ health, error, onRecheck }: Props) {
             {health.repo.dirty === null ? 'unknown' : health.repo.dirty ? 'yes' : 'no'};{' '}
             <span className="detail">{health.repo.path}</span>
           </li>
+          {/* The Repo row above is facts (path, dirty); this one is the verdict on whether a
+              push could go through, so a wrong branch/origin is visible here too. */}
+          <li>
+            Notes clone:{' '}
+            {health.repo.problem ? (
+              <>
+                {status(false)} <span className="detail">{health.repo.problem.message}</span>
+              </>
+            ) : health.repo.cloned ? (
+              status(true)
+            ) : (
+              <>
+                {status(false)} <span className="detail">not cloned yet</span>
+              </>
+            )}
+          </li>
           <li>
             Remote: {status(health.remote.ok)} <span className="detail">{health.remote.detail}</span>
           </li>

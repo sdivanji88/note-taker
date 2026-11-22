@@ -112,10 +112,39 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
     return true
   }, [])
 
+  // The just-saved capture the user is leaving, if it is a Kindle entry they never filled
+  // in. Deleted here (best effort, awaited so the batch grid's reload can't race it)
+  // rather than on unmount: only a deliberate Back/Prev/Next may remove anything.
+  // Resolves to the removed id, or null when nothing was removed.
+  const dropBlankKindle = useCallback(async (): Promise<string | null> => {
+    const { nav: n, captures: cs, position: p } = view.current
+    const cur = cs[n[p - 1]]
+    if (!cur || !actionsRef.current?.isBlankKindle()) return null
+    try {
+      await api.deleteCapture(cur.id)
+      return cur.id
+    } catch {
+      return null // Cleanup is a courtesy; the capture stays and the user still moves on.
+    }
+  }, [api])
+
+  // Mirrors the server after a delete without a refetch, so the position count and
+  // Prev/Next stop counting the removed capture.
+  const forget = useCallback((id: string) => {
+    if (!mounted.current) return
+    mutations.current++
+    setBatch((b) => b && { ...b, captures: b.captures.filter((x) => x.id !== id) })
+  }, [])
+
   const go = useCallback(async (offset: number, viaKey = false) => {
     // Never leave a capture with edits still unsaved.
-    if (await actionsRef.current?.flush()) moveTo(offset, viaKey)
-  }, [moveTo])
+    if (!(await actionsRef.current?.flush())) return
+    const { nav: n, position: p } = view.current
+    if (n[p - 1 + offset] === undefined) return // nowhere to go: stay, and keep the capture
+    const dropped = await dropBlankKindle()
+    moveTo(offset, viaKey)
+    if (dropped) forget(dropped) // same tick as moveTo, so one render sees both
+  }, [moveTo, dropBlankKindle, forget])
 
   const afterApproved = useCallback(() => {
     if (!moveTo(1)) onBack()
@@ -127,9 +156,11 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
   // Leaving counts as navigation: unsaved edits must be saved first, and if they can't be
   // the user decides explicitly instead of losing them to the unmount flush.
   const back = useCallback(async () => {
-    if (!actionsRef.current || (await actionsRef.current.flush())) onBack()
-    else if (mounted.current) setConfirmLeave(true)
-  }, [onBack])
+    if (!actionsRef.current || (await actionsRef.current.flush())) {
+      await dropBlankKindle()
+      onBack()
+    } else if (mounted.current) setConfirmLeave(true)
+  }, [onBack, dropBlankKindle])
 
   const goRef = useRef(go)
   goRef.current = go

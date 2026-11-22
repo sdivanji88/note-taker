@@ -80,6 +80,14 @@ export function dirtyFields(draft: Draft, base: Draft): FieldName[] {
   return out
 }
 
+// True when the user has put nothing of their own into the capture. Used to tell an
+// "Add Kindle highlight" entry they abandoned from one worth keeping; the book is ignored
+// because it is usually pre-filled from the batch default.
+export const isUnfilled = (d: Draft) =>
+  d.page.trim() === '' &&
+  d.chapter.trim() === '' &&
+  d.highlights.every((h) => h.text.trim() === '' && h.note.trim() === '')
+
 export const pageIsValid = (draft: Draft) => parsePage(draft.page).ok
 
 // Only changed fields go out, except highlights which is always the whole list (the

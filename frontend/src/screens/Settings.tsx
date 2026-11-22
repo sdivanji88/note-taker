@@ -4,7 +4,9 @@ import { ApiError, type Health, type Settings as SettingsT } from '../api/types'
 import ConfirmDialog from '../components/ConfirmDialog'
 import HealthPanel from '../components/HealthPanel'
 import { friendlyError } from '../format'
-import { FIELD_ORDER, toForm, toSettings, urlHasCredentials, validate, type FieldName, type Form } from './settingsForm'
+import {
+  FIELD_ORDER, fieldsFromServer, toForm, toSettings, urlHasCredentials, validate, type FieldName, type Form
+} from './settingsForm'
 
 interface Props {
   onBack: () => void
@@ -25,6 +27,10 @@ export default function Settings({ onBack }: Props) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  // Fields the backend rejected on the last save. Kept apart from client `errors` (which
+  // are derived from the form) because they describe a past request: editing a field
+  // retires its entry, a successful save retires them all.
+  const [serverErrors, setServerErrors] = useState<Partial<Record<FieldName, string>>>({})
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
   const [connectError, setConnectError] = useState<{ detail: string; code: string | null } | null>(null)
@@ -44,6 +50,7 @@ export default function Settings({ onBack }: Props) {
     setServer(s)
     setBaseline(toForm(s))
     setForm(toForm(s))
+    setServerErrors({})
   }, [])
 
   useEffect(() => {
@@ -79,6 +86,7 @@ export default function Settings({ onBack }: Props) {
   const set = (k: FieldName) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value })
     setSaved(false)
+    setServerErrors(({ [k]: _retired, ...rest }) => rest)
   }
 
   async function save(e: React.FormEvent) {
@@ -91,13 +99,25 @@ export default function Settings({ onBack }: Props) {
     }
     setSaving(true)
     setSaveError(null)
+    setServerErrors({})
     try {
       const result = await api.putSettings(toSettings(form, server))
       adopt(result)
       setSaved(true)
       void loadHealth()
     } catch (err) {
-      setSaveError(friendlyError(err))
+      const flagged = err instanceof ApiError ? fieldsFromServer(err.fields) : {}
+      const flaggedCount = Object.keys(flagged).length
+      setServerErrors(flagged)
+      const message = friendlyError(err)
+      setSaveError(
+        flaggedCount === 0
+          ? message
+          : `Settings weren't saved. Fix the ${flaggedCount === 1 ? 'highlighted field' : `${flaggedCount} highlighted fields`}. ${message}`
+      )
+      // Same focus rule as a client-side refusal: first problem in visual order.
+      const firstFlagged = FIELD_ORDER.find((k) => flagged[k])
+      if (firstFlagged) inputs.current[firstFlagged]?.focus()
     } finally {
       setSaving(false)
     }
@@ -123,7 +143,8 @@ export default function Settings({ onBack }: Props) {
   }
 
   function field(k: FieldName, label: string, opts: { type?: string; hint?: string } = {}) {
-    const err = errors[k]
+    // A client error describes the current text, so it outranks the server's older verdict.
+    const err = errors[k] ?? serverErrors[k]
     const ids = [err && `${k}-err`, opts.hint && `${k}-hint`].filter(Boolean).join(' ') || undefined
     return (
       <div className="field">

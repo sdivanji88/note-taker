@@ -35,15 +35,18 @@ export function createClient(cfg: BackendConfig) {
   async function parseError(res: Response): Promise<ApiError> {
     let code = 'http_error'
     let message = res.statusText || `HTTP ${res.status}`
+    let fields: string[] = []
     try {
       const body = await res.json()
       if (typeof body?.error?.code === 'string') code = body.error.code
       if (typeof body?.error?.message === 'string') message = body.error.message
+      const f = body?.error?.fields
+      if (Array.isArray(f)) fields = f.filter((x): x is string => typeof x === 'string')
     } catch {
       // Not the standard error body (proxy page, empty reply): keep the fallback.
     }
     // The backend redacts its own messages; this is a second line of defence.
-    return new ApiError(res.status, code, message.split(token).join('[redacted]'))
+    return new ApiError(res.status, code, message.split(token).join('[redacted]'), fields)
   }
 
   async function request<T>(
@@ -94,7 +97,10 @@ export function createClient(cfg: BackendConfig) {
     getBatch: (batchId: string) => request<Batch>('GET', `/batches/${enc(batchId)}`),
     patchBatch: (batchId: string, body: { default_book_slug: string | null }) =>
       request<Batch>('PATCH', `/batches/${enc(batchId)}`, { json: body }),
-    deleteBatch: (batchId: string) => request<void>('DELETE', `/batches/${enc(batchId)}`),
+    // onlyIfEmpty: the backend ignores the call unless the batch is open with no captures,
+    // so a caller cleaning up after the user backs out can't delete real work.
+    deleteBatch: (batchId: string, opts: { onlyIfEmpty?: boolean } = {}) =>
+      request<void>('DELETE', `/batches/${enc(batchId)}${opts.onlyIfEmpty ? '?only_if_empty=true' : ''}`),
 
     uploadPhotos: (batchId: string, files: File[]) => {
       const form = new FormData()

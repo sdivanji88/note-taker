@@ -72,7 +72,7 @@ export function fakeClient(overrides: Record<string, unknown> = {}) {
     ping: vi.fn().mockResolvedValue({ ok: true }),
     getHealth: vi.fn().mockResolvedValue({
       extractor: { kind: 'tesseract', ok: true, detail: '' },
-      repo: { cloned: true, dirty: false, path: '/x' },
+      repo: { cloned: true, dirty: false, path: '/x', problem: null },
       remote: { ok: true, detail: '' }
     }),
     listBooks: vi.fn().mockResolvedValue([]),

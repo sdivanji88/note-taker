@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { useApi } from '../api/context'
 import { ApiError, type Capture, type ExtractorKind } from '../api/types'
 import { useCaptureDraft } from '../hooks/useCaptureDraft'
-import { isGone, isPushing, newKey, pageIsValid, PAGE_ERROR, reviewErrorMessage } from '../review/draft'
+import { isGone, isPushing, isUnfilled, newKey, pageIsValid, PAGE_ERROR, reviewErrorMessage } from '../review/draft'
 import BookSelect from './BookSelect'
 import CapturePhoto from './CapturePhoto'
 import ConfirmDialog from './ConfirmDialog'
@@ -17,6 +17,9 @@ export interface PaneActions {
   // Whether Approve (and so ⌘↵) would do anything right now; the same condition that
   // disables the footer button, so the shortcut can't act where the button can't.
   canApprove: () => boolean
+  // A Kindle entry the user added and never filled in; leaving it would strand an empty
+  // capture in the batch. Photo captures are never "blank": the photo is the content.
+  isBlankKindle: () => boolean
 }
 
 interface Props {
@@ -43,7 +46,7 @@ const SAVE_TEXT = { idle: '', unsaved: 'Not saved', saving: 'Saving…', saved: 
 export default function CapturePane(props: Props) {
   const { capture, batchDefaultSlug, extractorName, actionsRef, onSaved, onRefresh } = props
   const api = useApi()
-  const { draft, edit, save, flush: flushDraft } = useCaptureDraft(capture, onSaved)
+  const { draft, edit, save, flush: flushDraft, current: currentDraft } = useCaptureDraft(capture, onSaved)
   const [actionError, setActionError] = useState<string | null>(null)
   const [gone, setGone] = useState(false)
   // Set by a 409 batch_pushing; cleared (and the held edit re-sent) once a fresh batch
@@ -160,8 +163,9 @@ export default function CapturePane(props: Props) {
   // successor pane overwrites it, so an unmounting pane must not null it out.
   useEffect(() => {
     // A capture that no longer exists has nothing to save, so leaving it never prompts.
-    actionsRef.current = isGoneNow ? { flush: async () => true, approve: async () => false, canApprove: () => false }
-      : { flush, approve, canApprove }
+    actionsRef.current = isGoneNow
+      ? { flush: async () => true, approve: async () => false, canApprove: () => false, isBlankKindle: () => false }
+      : { flush, approve, canApprove, isBlankKindle: () => capture.source === 'kindle' && isUnfilled(currentDraft()) }
   })
 
   const unapprove = () => void act(() => patch({ status: 'ready' }))

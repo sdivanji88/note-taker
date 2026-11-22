@@ -402,3 +402,82 @@ describe('BatchGrid live-update status', () => {
     error.mockRestore()
   })
 })
+
+describe('BatchGrid backing out of an empty batch', () => {
+  const back = () => fireEvent.click(screen.getByRole('button', { name: /← batches/i }))
+  const opened = (batchValue = batch()) => {
+    const onBack = vi.fn()
+    const f = fakeClient({ getBatch: vi.fn().mockResolvedValue(batchValue) })
+    grid(f.client, { onBack })
+    return { ...f, onBack }
+  }
+
+  it('deletes a batch with no captures (only if still empty) before going back', async () => {
+    const { client, onBack } = opened()
+    await screen.findByLabelText(/photo files/i)
+    back()
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1))
+    expect(client.deleteBatch).toHaveBeenCalledWith('b1', { onlyIfEmpty: true })
+    // The list reloads on mount, so the delete must have been issued (and awaited) first.
+    expect(client.deleteBatch.mock.invocationCallOrder[0]).toBeLessThan(onBack.mock.invocationCallOrder[0])
+  })
+
+  it('leaves a batch with captures alone', async () => {
+    const { client, onBack } = opened(batch([capture('c1', 'ready')]))
+    await screen.findByTestId('thumb-c1')
+    back()
+    await waitFor(() => expect(onBack).toHaveBeenCalled())
+    expect(client.deleteBatch).not.toHaveBeenCalled()
+  })
+
+  it('goes back even when the cleanup request fails', async () => {
+    const onBack = vi.fn()
+    const { client } = fakeClient({
+      getBatch: vi.fn().mockResolvedValue(batch()),
+      deleteBatch: vi.fn().mockRejectedValue(new ApiError(500, 'boom', 'disk full'))
+    })
+    grid(client, { onBack })
+    await screen.findByLabelText(/photo files/i)
+    back()
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1))
+    expect(client.deleteBatch).toHaveBeenCalled()
+  })
+
+  it('does not delete while an upload is in flight', async () => {
+    const { client } = fakeClient({
+      getBatch: vi.fn().mockResolvedValue(batch()),
+      uploadPhotos: vi.fn(() => new Promise(() => {}))
+    })
+    const onBack = vi.fn()
+    grid(client, { onBack })
+    await screen.findByLabelText(/photo files/i)
+    pickFiles([png()])
+    await waitFor(() => expect(client.uploadPhotos).toHaveBeenCalled())
+    back()
+    await waitFor(() => expect(onBack).toHaveBeenCalled())
+    expect(client.deleteBatch).not.toHaveBeenCalled()
+  })
+
+  it('does not delete when the batch has not loaded', async () => {
+    const { client } = fakeClient({ getBatch: vi.fn(() => new Promise(() => {})) })
+    const onBack = vi.fn()
+    grid(client, { onBack })
+    back()
+    await waitFor(() => expect(onBack).toHaveBeenCalled())
+    expect(client.deleteBatch).not.toHaveBeenCalled()
+  })
+
+  it('does not delete when the latest refresh failed (the empty view may be stale)', async () => {
+    const { client } = fakeClient({
+      getBatch: vi.fn().mockResolvedValueOnce(batch()).mockRejectedValue(new ApiError(0, 'network_error', 'down'))
+    })
+    const onBack = vi.fn()
+    grid(client, { onBack })
+    await screen.findByLabelText(/photo files/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+    await screen.findByRole('alert')
+    back()
+    await waitFor(() => expect(onBack).toHaveBeenCalled())
+    expect(client.deleteBatch).not.toHaveBeenCalled()
+  })
+})

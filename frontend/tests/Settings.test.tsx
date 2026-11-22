@@ -24,7 +24,7 @@ const withUrl = (url: string, creds: boolean): SettingsT => ({
 })
 const okHealth: Health = {
   extractor: { kind: 'ollama', ok: true, detail: 'ready' },
-  repo: { cloned: true, dirty: false, path: '/clone' },
+  repo: { cloned: true, dirty: false, path: '/clone', problem: null },
   remote: { ok: true, detail: 'ok' }
 }
 const CRED_NOTICE = /This URL contains credentials\. The app doesn't need them/
@@ -33,7 +33,7 @@ function setup(over: Record<string, unknown> = {}, props: { onBack?: () => void 
   const f = fakeClient({
     getSettings: vi.fn().mockResolvedValue(base),
     putSettings: vi.fn().mockImplementation(async (s: SettingsT) => s),
-    connectRepo: vi.fn().mockResolvedValue({ cloned: true, dirty: false, path: '/clone' }),
+    connectRepo: vi.fn().mockResolvedValue({ cloned: true, dirty: false, path: '/clone', problem: null }),
     getHealth: vi.fn().mockResolvedValue(okHealth),
     ...over
   })
@@ -274,5 +274,102 @@ describe('Settings', () => {
     await field(/expiry days/i)
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     expect(onBack).toHaveBeenCalled()
+  })
+
+  describe('health: notes clone row', () => {
+    const row = async () => (await screen.findByText(/^Notes clone:/)).closest('li') as HTMLElement
+
+    it('shows OK when the clone has no problem', async () => {
+      setup()
+      expect(await row()).toHaveTextContent('Notes clone: OK')
+    })
+
+    it('shows the backend problem message when there is one', async () => {
+      const message = 'clone is on "dev" but Settings expects "main"'
+      setup({
+        getHealth: vi.fn().mockResolvedValue({
+          ...okHealth,
+          repo: { ...okHealth.repo, problem: { code: 'wrong_branch', message } }
+        })
+      })
+      const li = await row()
+      expect(li).toHaveTextContent(message)
+      expect(li).not.toHaveTextContent(/Notes clone: OK/)
+    })
+  })
+
+  describe('server field errors on a rejected save', () => {
+    const rejectWith = (message: string, fields: string[], code = 'invalid_settings') =>
+      vi.fn().mockRejectedValue(new ApiError(422, code, message, fields))
+    const input = (label: RegExp) => screen.getByLabelText(label)
+
+    async function save422(fields: string[], code = 'invalid_settings') {
+      const client = setup({ putSettings: rejectWith('server says no: details', fields, code) })
+      type(await field(/^branch$/i), 'bad branch')
+      fireEvent.click(saveBtn())
+      await screen.findByRole('alert')
+      return client
+    }
+
+    it('flags each mapped field, focuses the first in form order, and counts them in the alert', async () => {
+      await save422(['extractor.concurrency', 'notes_repo.branch'])
+      expect(input(/^branch$/i)).toHaveAttribute('aria-invalid', 'true')
+      expect(input(/^branch$/i)).toHaveAccessibleDescription(/check this field/i)
+      expect(input(/concurrency/i)).toHaveAttribute('aria-invalid', 'true')
+      expect(document.activeElement).toBe(input(/^branch$/i))
+      expect(input(/timeout/i)).not.toHaveAttribute('aria-invalid')
+      const alert = screen.getByRole('alert')
+      expect(alert).toHaveTextContent(/Settings weren't saved\. Fix the 2 highlighted fields\./)
+      expect(alert).toHaveTextContent('server says no: details')
+      expect(saveBtn()).toBeEnabled()
+    })
+
+    it('uses the singular for one field', async () => {
+      await save422(['notes_repo.branch'])
+      expect(screen.getByRole('alert')).toHaveTextContent(/Fix the highlighted field\./)
+    })
+
+    it('clears only the edited field\'s server error', async () => {
+      await save422(['notes_repo.branch', 'extractor.concurrency'])
+      type(input(/^branch$/i), 'main2')
+      expect(input(/^branch$/i)).not.toHaveAttribute('aria-invalid')
+      expect(input(/concurrency/i)).toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('also maps the field paths of an invalid_request rejection', async () => {
+      await save422(['notes_repo.remote_url'], 'invalid_request')
+      expect(input(/remote url/i)).toHaveAttribute('aria-invalid', 'true')
+      expect(document.activeElement).toBe(input(/remote url/i))
+    })
+
+    it('falls back to the raw message when no field maps (e.g. extractor.kind) or none are sent', async () => {
+      await save422(['extractor.kind'])
+      expect(screen.getByRole('alert')).toHaveTextContent('server says no: details')
+      expect(screen.getByRole('alert')).not.toHaveTextContent(/highlighted/)
+      expect(document.querySelector('[aria-invalid]')).toBeNull()
+    })
+
+    it('a client-side error wins over a server one on the same field', async () => {
+      await save422(['batches.expiry_days'])
+      // Editing clears the server error, so the only message left is the client's.
+      type(input(/expiry days/i), '0')
+      expect(screen.getByText(/expiry days must be at least 1/i)).toBeInTheDocument()
+      expect(screen.queryByText(/check this field/i)).toBeNull()
+    })
+
+    it('a successful save clears every server error', async () => {
+      const put = vi
+        .fn()
+        .mockRejectedValueOnce(new ApiError(422, 'invalid_settings', 'no', ['notes_repo.branch', 'batches.expiry_days']))
+        .mockImplementation(async (s: SettingsT) => s)
+      setup({ putSettings: put })
+      type(await field(/^branch$/i), 'x')
+      fireEvent.click(saveBtn())
+      await screen.findByRole('alert')
+      fireEvent.click(saveBtn())
+      await screen.findByText('Saved')
+      expect(document.querySelector('[aria-invalid]')).toBeNull()
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
   })
 })

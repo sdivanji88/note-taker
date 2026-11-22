@@ -90,6 +90,35 @@ describe('createClient', () => {
     expect(http.message).not.toContain(cfg.token)
   })
 
+  it('exposes the 422 body\'s field paths on ApiError.fields, [] when absent or malformed', async () => {
+    fetchMock.mockResolvedValue(
+      reply(422, { error: { code: 'invalid_settings', message: 'bad', fields: ['notes_repo.branch', 'extractor.timeout_s'] } })
+    )
+    const withFields = await createClient(cfg).putSettings({} as never).catch((e) => e)
+    expect(withFields.fields).toEqual(['notes_repo.branch', 'extractor.timeout_s'])
+
+    fetchMock.mockResolvedValue(reply(409, { error: { code: 'dirty_repo', message: 'x' } }))
+    expect((await createClient(cfg).push('b1').catch((e) => e)).fields).toEqual([])
+
+    fetchMock.mockResolvedValue(reply(422, { error: { code: 'invalid_request', message: 'x', fields: 'page' } }))
+    expect((await createClient(cfg).push('b1').catch((e) => e)).fields).toEqual([])
+
+    fetchMock.mockRejectedValue(new TypeError('down'))
+    expect((await createClient(cfg).push('b1').catch((e) => e)).fields).toEqual([])
+  })
+
+  it('deleteBatch with onlyIfEmpty adds the query flag; without it the path is bare', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    await createClient(cfg).deleteBatch('b1')
+    await createClient(cfg).deleteBatch('b1', { onlyIfEmpty: true })
+    await createClient(cfg).deleteBatch('b1', { onlyIfEmpty: false })
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      'http://127.0.0.1:9999/batches/b1',
+      'http://127.0.0.1:9999/batches/b1?only_if_empty=true',
+      'http://127.0.0.1:9999/batches/b1'
+    ])
+  })
+
   it('sends JSON bodies and resolves 204 to undefined', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
     await expect(createClient(cfg).deleteBatch('b1')).resolves.toBeUndefined()

@@ -174,6 +174,18 @@ export default function BatchGrid({ batchId, onOpenReview, onBack }: Props) {
     }
   }
 
+  // Backing out of a batch the user never put anything into would leave an "Empty" row in
+  // the list, so it is removed silently. The delete is awaited so the list's reload can't
+  // race it, and only fires from a settled, successfully loaded view: a stale or busy
+  // grid may not be empty any more. `onlyIfEmpty` makes the server the final judge, and
+  // a failed cleanup must never trap the user on this screen.
+  async function leave() {
+    if (batch && batch.captures.length === 0 && !busy && !loadError) {
+      await api.deleteBatch(batchId, { onlyIfEmpty: true }).catch(() => {})
+    }
+    onBack()
+  }
+
   function toggle(id: string) {
     setSelected((s) => {
       const next = new Set(s)
@@ -185,7 +197,7 @@ export default function BatchGrid({ batchId, onOpenReview, onBack }: Props) {
   return (
     <main className="screen">
       <header className="row between">
-        <button onClick={onBack}>← Batches</button>
+        <button onClick={() => void leave()}>← Batches</button>
         <h1>Batch</h1>
         <div className="row">
           {/* Always mounted: screen readers only announce changes to a region that already exists. */}

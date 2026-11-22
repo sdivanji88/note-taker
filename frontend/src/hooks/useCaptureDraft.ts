@@ -154,5 +154,9 @@ export function useCaptureDraft(capture: Capture, onSaved: (c: Capture) => void)
     }
   }, [])
 
-  return { draft, edit, save, flush }
+  // Always the latest typed state, unlike `draft`, which a callback may have closed over
+  // before the last keystroke.
+  const current = useCallback(() => draftRef.current, [])
+
+  return { draft, edit, save, flush, current }
 }

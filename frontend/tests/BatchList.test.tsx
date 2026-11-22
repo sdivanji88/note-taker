@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import BatchList from '../src/screens/BatchList'
 import { ApiError } from '../src/api/types'
 import { batch, book, fakeClient, renderWith, summary } from './helpers'
@@ -181,6 +181,125 @@ describe('BatchList', () => {
       await waitFor(() => expect(screen.getAllByRole('button', { name: /resume/i })).toHaveLength(1))
       expect(screen.queryByRole('alert')).toBeNull()
       expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Note Taker' }))
+    })
+  })
+
+  describe('repo problem notice', () => {
+    const healthWith = (repo: Record<string, unknown>) =>
+      vi.fn().mockResolvedValue({
+        extractor: { kind: 'tesseract', ok: true, detail: '' },
+        repo: { cloned: true, dirty: false, path: '/x', problem: null, ...repo },
+        remote: { ok: true, detail: '' }
+      })
+    const wrongBranch = {
+      code: 'wrong_branch',
+      message: 'clone is on "dev" but Settings expects "main"'
+    }
+
+    it('says pushes are blocked, with the backend message and a link to Settings', async () => {
+      const onSettings = vi.fn()
+      const { client } = fakeClient({ getHealth: healthWith({ problem: wrongBranch }) })
+      list(client, { onSettings })
+      const status = await screen.findByText(/Pushes are blocked:/)
+      const box = status.closest('[role="status"]') as HTMLElement
+      expect(box).toHaveTextContent('Pushes are blocked: clone is on "dev" but Settings expects "main"')
+      fireEvent.click(within(box).getByRole('button', { name: 'Open Settings' }))
+      expect(onSettings).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows nothing when the repo has no problem', async () => {
+      const { client } = fakeClient({ listBatches: vi.fn().mockResolvedValue([summary('a')]) })
+      list(client)
+      await screen.findByRole('button', { name: /resume/i })
+      await waitFor(() => expect(client.getHealth).toHaveBeenCalled())
+      expect(screen.queryByText(/Pushes are blocked/)).toBeNull()
+      expect(screen.queryByText(/not connected/)).toBeNull()
+    })
+
+    it('shows only the not-connected banner when the repo is not cloned, even with a problem', async () => {
+      const { client } = fakeClient({ getHealth: healthWith({ cloned: false, dirty: null, problem: wrongBranch }) })
+      list(client)
+      expect(await screen.findByText(/notes repo is not connected/i)).toBeInTheDocument()
+      expect(screen.queryByText(/Pushes are blocked/)).toBeNull()
+    })
+
+    it('shows no notice, only the existing warning, when the health check fails', async () => {
+      const { client } = fakeClient({
+        getHealth: vi.fn().mockRejectedValue(new ApiError(0, 'network_error', 'health down'))
+      })
+      list(client)
+      expect(await screen.findByText(/could not check the notes repo: health down/i)).toBeInTheDocument()
+      expect(screen.queryByText(/Pushes are blocked/)).toBeNull()
+    })
+
+    it('sits above the expiry banner', async () => {
+      const { client } = fakeClient({
+        getHealth: healthWith({ problem: wrongBranch }),
+        listBatches: vi.fn().mockResolvedValue([summary('a', { expiring_soon: true })])
+      })
+      list(client)
+      const notice = await screen.findByText(/Pushes are blocked/)
+      const expiry = await screen.findByRole('alert', { name: /expir/i })
+      expect(notice.compareDocumentPosition(expiry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+  })
+
+  describe('per-batch expiring pill', () => {
+    const NOW = new Date('2026-11-22T12:00:00Z')
+    const H = 3_600_000
+    const at = (ms: number) => new Date(NOW.getTime() + ms).toISOString()
+    // Only Date is faked so findBy*/waitFor keep their real timers.
+    const freeze = () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(NOW)
+    }
+    afterEach(() => vi.useRealTimers())
+
+    async function one(over: Parameters<typeof summary>[1]) {
+      freeze()
+      const { client } = fakeClient({ listBatches: vi.fn().mockResolvedValue([summary('a', over)]) })
+      list(client)
+      await screen.findByRole('button', { name: /resume/i })
+    }
+
+    it('is absent when the batch is not expiring', async () => {
+      await one({ expires_at: at(3 * 24 * H) })
+      expect(document.querySelector('.pill')).toBeNull()
+    })
+
+    it.each([
+      ['3 days out', 3 * 24 * H, 'Expires in 3 days'],
+      ['exactly 1 day out', 24 * H, 'Expires in 1 day'],
+      ['5 hours out', 5 * H, 'Expires today'],
+      ['1 hour past', -1 * H, 'Expired — will be deleted soon']
+    ])('%s', async (_n, offset, text) => {
+      await one({ expiring_soon: true, expires_at: at(offset) })
+      const pill = document.querySelector('.pill.warn') as HTMLElement
+      expect(pill).toHaveTextContent(text)
+      expect(pill).toHaveAttribute(
+        'title',
+        `Deleted after ${new Date(at(offset)).toLocaleString()} unless you edit this batch.`
+      )
+      expect(pill.closest('[role="alert"], [role="status"]')).toBeNull()
+    })
+
+    it('falls back to "Expires soon" when the date cannot be read', async () => {
+      await one({ expiring_soon: true, expires_at: 'someday' })
+      expect(document.querySelector('.pill')).toHaveTextContent('Expires soon')
+    })
+
+    it('marks only the expiring row', async () => {
+      freeze()
+      const { client } = fakeClient({
+        listBatches: vi.fn().mockResolvedValue([
+          summary('a', { expiring_soon: true, expires_at: at(2 * 24 * H) }),
+          summary('b', { expires_at: at(20 * 24 * H) })
+        ])
+      })
+      list(client)
+      const rows = await screen.findAllByRole('listitem')
+      expect(within(rows[0]).getByText('Expires in 2 days')).toBeInTheDocument()
+      expect(rows[1].querySelector('.pill')).toBeNull()
     })
   })
 })

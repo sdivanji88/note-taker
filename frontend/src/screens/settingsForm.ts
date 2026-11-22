@@ -79,6 +79,35 @@ export const FIELD_ORDER: FieldName[] = [
   'concurrency', 'timeout_s', 'expiry_days', 'warn_days_before'
 ]
 
+// The backend reports rejected fields as dotted paths into Settings. Only inputs that
+// exist in the form are listed: the kind radios and tesseract tuning have nothing to flag
+// or focus, so their errors surface through the summary message alone.
+const SERVER_FIELD: Record<string, FieldName> = {
+  'notes_repo.remote_url': 'remote_url',
+  'notes_repo.branch': 'branch',
+  'notes_repo.local_path': 'local_path',
+  'notes_repo.books_dir': 'books_dir',
+  'extractor.ollama.base_url': 'base_url',
+  'extractor.ollama.model': 'model',
+  'extractor.concurrency': 'concurrency',
+  'extractor.timeout_s': 'timeout_s',
+  'batches.expiry_days': 'expiry_days',
+  'batches.warn_days_before': 'warn_days_before'
+}
+
+// The backend sends one joined message for the whole request, not one per field, and
+// parsing it would couple the UI to its wording; so a flagged field only says "look here".
+export const SERVER_FIELD_TEXT = 'Check this field — the server rejected it.'
+
+export function fieldsFromServer(paths: string[]): Partial<Record<FieldName, string>> {
+  const out: Partial<Record<FieldName, string>> = {}
+  for (const p of paths) {
+    const k = Object.hasOwn(SERVER_FIELD, p) ? SERVER_FIELD[p] : undefined
+    if (k) out[k] = SERVER_FIELD_TEXT
+  }
+  return out
+}
+
 // A password/token in a URL's userinfo ends up in settings.json in plain text. Plain
 // `ssh://git@host` is normal, so only flag http(s) userinfo or any `user:secret@`.
 export function urlHasCredentials(url: string): boolean {

@@ -3,7 +3,7 @@ import { useApi } from '../api/context'
 import { ApiError, type BatchSummary, type Book, type Health } from '../api/types'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ExpiryBanner from '../components/ExpiryBanner'
-import { errorMessage, formatDate } from '../format'
+import { errorMessage, expiryPillText, formatDate } from '../format'
 
 interface Props {
   onOpenBatch: (batchId: string) => void
@@ -91,9 +91,17 @@ export default function BatchList({ onOpenBatch, onSettings }: Props) {
           <button onClick={onSettings}>Settings</button>
         </div>
       </header>
+      {/* Exactly one repo notice: "not connected" explains everything a problem would
+          (there is no clone to be on the wrong branch), so a problem shows only once cloned. */}
       {health && !health.repo.cloned && (
         <div role="status" className="banner">
           Your notes repo is not connected.{' '}
+          <button className="link" onClick={onSettings}>Open Settings</button>
+        </div>
+      )}
+      {health?.repo.cloned && health.repo.problem && (
+        <div role="status" className="banner warn">
+          Pushes are blocked: {health.repo.problem.message}{' '}
           <button className="link" onClick={onSettings}>Open Settings</button>
         </div>
       )}
@@ -109,6 +117,16 @@ export default function BatchList({ onOpenBatch, onSettings }: Props) {
           <li key={b.id} className="batch">
             <div>
               <strong>{title(b.default_book_slug)}</strong>
+              {/* A plain label, not a live region: the banner above already announces the
+                  batch count; this just says which rows it means. */}
+              {b.expiring_soon && (
+                <span
+                  className="pill warn"
+                  title={`Deleted after ${formatDate(b.expires_at)} unless you edit this batch.`}
+                >
+                  {expiryPillText(b.expires_at)}
+                </span>
+              )}
               <div>Created {formatDate(b.created_at)}</div>
               <div>Expires {formatDate(b.expires_at)}</div>
               <div>
