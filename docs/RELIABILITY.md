@@ -9,7 +9,7 @@ Single local user. Per-photo extraction ≤180s timeout (concurrency 1, Ollama o
 Specific targets:
 
 - **Latency (p50 / p95 / p99):** non-extraction API calls <200ms locally
-- **Image previews:** `GET /captures/{id}/image` decodes the 12 MP original once per capture and rotation, then serves a cached <=2000 px JPEG; repeat views are a file read, or a 304 when the browser's ETag still matches (no disk work). Only the first view of a photo pays the decode.
+- **Image previews:** `GET /captures/{id}/image` decodes the 12 MP original once per capture and rotation, then serves a cached <=2000 px JPEG; repeat views are a file read, or a 304 when the browser's ETag still matches (no photo read or decode; the capture lookup still reads every open batch's `batch.json`, so cost grows with the number of open batches). Previews are generated lazily, so only the first view of a photo pays the decode.
 - **Throughput:** extraction is the bottleneck: ~1 photo at a time, ≤180s timeout each
 - **Resource budget (CPU / memory):** one local vision model in memory (Ollama); backend itself small
 - **Startup time:** backend healthy within 20s of Electron launch (Electron gives up after 20s)
@@ -66,6 +66,9 @@ For each anticipated failure, document: trigger, detection, blast radius, recove
 - Dirty notes repo → push refused (409) with instructions
 - Push rejected / network failure → rollback of app's own commit, batch kept, retry later
 - Crash mid-push → `recover()` on startup reconciles via remote markers
+- Failure after a successful `git push` (bookkeeping) → batch reopened, logged as "pushed but bookkeeping failed", push returns 500 `bookkeeping_failed`; retry writes nothing new (markers) and finishes the bookkeeping
+- Corrupt `settings.json` → moved to `settings.json.corrupt`, defaults used, logged (the UI does not say so); corrupt `batch.json` → batch skipped by `BatchStore.list()` (hidden, never expires, photos stay on disk)
+- Wrong branch or mismatched origin in the notes clone → `/health` `repo.problem` and a BatchList notice before a push is refused
 
 ## Backpressure & degradation
 

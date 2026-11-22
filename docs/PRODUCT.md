@@ -24,7 +24,7 @@ As a reader of fiction and work-related non-fiction who marks paper books with a
 - Extraction of highlighted text only, handwritten margin note, printed page number (Ollama vision model or Tesseract + highlight color mask, configurable)
 - One-page-at-a-time review/edit with approve/discard
 - Append highlights as markdown sections to `books/<slug>.md` in the user's GitHub repo; one commit per push
-- Batch lifecycle: several open batches, delete on done, 30-day expiry (configurable) with warning
+- Batch lifecycle: several open batches, delete on done, 30-day expiry (configurable) with warning; the batch list marks an expiring batch with a pill ("Expires in N days", "Expires within a day"), backing out of an empty batch or a blank Kindle entry removes it, and a notice on the batch list says when the notes clone is on the wrong branch or remote so the user learns before a push is refused
 
 ### Out of scope
 
