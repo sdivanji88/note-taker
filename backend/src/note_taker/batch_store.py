@@ -81,20 +81,12 @@ class BatchStore:
         return Batch.model_validate(data)
 
     def list(self) -> list[Batch]:
-        with _LOCK:
-            root = self._paths.batches_dir
-            if not root.exists():
-                return []
-            batches = [
-                Batch.model_validate(data)
-                for d in root.iterdir()
-                if (data := read_json(d / "batch.json")) is not None
-            ]
-        return sorted(batches, key=lambda b: b.created_at)
+        """Every readable batch, oldest first.
 
-    def list_readable(self) -> list[Batch]:
-        # For the janitor: one corrupt batch.json must not hide every other batch from
-        # expiry, whereas list() fails loudly so API callers notice corruption.
+        An unreadable batch.json is skipped (and logged) rather than raised: callers like
+        the batch list, startup and the janitor need every other batch, and a
+        traceback per call would flood the log for one bad file.
+        """
         with _LOCK:
             root = self._paths.batches_dir
             if not root.exists():
@@ -105,8 +97,8 @@ class BatchStore:
                     data = read_json(d / "batch.json")
                     if data is not None:
                         batches.append(Batch.model_validate(data))
-                except Exception:
-                    log.warning("skipping unreadable batch %s", d.name, exc_info=True)
+                except ValueError as exc:  # JSON, UnicodeDecode and pydantic validation errors
+                    log.warning("skipping unreadable batch %s: %s", d.name, exc)
         return sorted(batches, key=lambda b: b.created_at)
 
     def save(self, batch: Batch, touch: bool = True) -> Batch:

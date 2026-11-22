@@ -43,6 +43,14 @@ def data_paths(tmp_path) -> DataPaths:
     return DataPaths(tmp_path)
 
 
+def corrupt_batch(paths: DataPaths, batch_id: str = "01ARZ3NDEKTSV4RRFFQ69G5FAV") -> Path:
+    """A batch folder whose batch.json is unparseable, as left by a crash or a hand edit."""
+    bad = paths.batch_file(batch_id)
+    bad.parent.mkdir(parents=True)
+    bad.write_text("{nope")
+    return bad
+
+
 @pytest.fixture
 def make_image(tmp_path):
     def _make(

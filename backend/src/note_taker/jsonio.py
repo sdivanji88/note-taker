@@ -1,7 +1,10 @@
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 def write_json_atomic(path: Path, data: dict) -> None:
@@ -26,3 +29,20 @@ def read_json(path: Path) -> dict | None:
         return json.loads(Path(path).read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
+
+
+def quarantine(path: Path) -> None:
+    """Move an unreadable file to `<name>.corrupt` (replacing an earlier backup).
+
+    Keeps the bytes for manual recovery instead of letting the next write overwrite them.
+    Never raises: a concurrent caller may already have moved it, and a failure to move
+    must not turn "tolerate a corrupt file" back into a crash.
+    """
+    path = Path(path)
+    backup = path.with_name(path.name + ".corrupt")
+    try:
+        path.replace(backup)
+    except OSError as exc:
+        log.warning("could not quarantine %s: %s", path, exc)
+        return
+    log.warning("unreadable file %s moved to %s", path.name, backup)

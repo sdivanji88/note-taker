@@ -1,6 +1,7 @@
 import threading
 
 import pytest
+from conftest import corrupt_batch
 from push_helpers import (
     _edit_mid_push,
     _mark_pushing,
@@ -264,3 +265,12 @@ def test_edit_racing_push_start_is_either_written_or_refused(env):
     assert after.captures[0].status == CaptureStatus.pushed
     assert text in remote_text(env)
     assert refused or text == "edited right before push"
+
+
+def test_recover_survives_a_corrupt_batch(env):
+    env.books.create("Dune", None, Kind.fiction)
+    corrupt_batch(env.paths)
+    batch = add_batch(env, "dune", ("approved",))
+    _mark_pushing(env, batch)
+    env.svc.recover()
+    assert env.store.get(batch.id).status == BatchStatus.open

@@ -8,8 +8,10 @@ from api_helpers import (
     error_code,
     put_settings,
 )
+from conftest import corrupt_batch
 
 from note_taker.extractors.fake import FakeExtractor
+from note_taker.paths import DataPaths
 
 # Tesseract isn't installed here; rotation guessing must be inert and fast.
 pytestmark = pytest.mark.usefixtures("no_osd")
@@ -24,6 +26,24 @@ def test_get_settings_returns_defaults(client):
     assert body["batches"] == {"expiry_days": 30, "warn_days_before": 7}
     assert body["extractor"]["timeout_s"] == 180
     assert body["remote_url_has_credentials"] is False
+
+
+def test_backend_starts_with_corrupt_settings(tmp_path, make_app):
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "settings.json").write_text("{corrupt")
+    client = make_app()
+    assert client.get("/settings", headers=H).json()["notes_repo"]["branch"] == "main"
+    assert (data / "settings.json.corrupt").read_text() == "{corrupt"
+    assert put_settings(client, branch="notes").status_code == 200
+
+
+def test_get_batches_survives_one_corrupt_batch(tmp_path, client):
+    good = client.post("/batches", headers=H, json={}).json()["id"]
+    corrupt_batch(DataPaths(tmp_path / "data"))
+    r = client.get("/batches", headers=H)
+    assert r.status_code == 200
+    assert [b["id"] for b in r.json()] == [good]
 
 
 def test_put_settings_persists(client):

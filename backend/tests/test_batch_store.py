@@ -1,5 +1,7 @@
+import logging
+
 import pytest
-from conftest import dt
+from conftest import corrupt_batch, dt
 
 from note_taker.batch_store import (
     BatchNotFound,
@@ -151,15 +153,32 @@ def keep_capture(store, batch):
     return store.add_kindle(batch.id, [], None, None, None, None)
 
 
-def test_list_readable_skips_corrupt_batches(data_paths):
+def test_list_skips_corrupt_batch_json(data_paths, caplog):
+    store = BatchStore(data_paths)
+    good = store.create(None)
+    corrupt_batch(data_paths)
+    with caplog.at_level(logging.WARNING):
+        assert [b.id for b in store.list()] == [good.id]
+    (rec,) = [r for r in caplog.records if "skipping unreadable batch" in r.getMessage()]
+    assert "01ARZ3NDEKTSV4RRFFQ69G5FAV" in rec.getMessage()
+    assert rec.exc_info is None  # one line per bad batch, not a traceback per listing
+
+
+def test_list_skips_schema_invalid_batch_json(data_paths):
     store = BatchStore(data_paths)
     good = store.create(None)
     bad = data_paths.batch_file("01ARZ3NDEKTSV4RRFFQ69G5FAV")
     bad.parent.mkdir(parents=True)
-    bad.write_text("{nope")
-    assert [b.id for b in store.list_readable()] == [good.id]
-    with pytest.raises(ValueError):  # json.JSONDecodeError
-        store.list()
+    bad.write_text('{"id": 5}')
+    assert [b.id for b in store.list()] == [good.id]
+
+
+def test_find_capture_finds_capture_despite_corrupt_sibling(data_paths):
+    store = BatchStore(data_paths)
+    corrupt_batch(data_paths)
+    batch = store.create(None)
+    cap = keep_capture(store, batch)
+    assert store.find_capture(cap.id)[1].id == cap.id
 
 
 def test_delete_if_deletes_only_when_predicate_holds(data_paths):

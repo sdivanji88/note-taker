@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from conftest import corrupt_batch
 from queue_helpers import GatedExtractor, _drain, queue_env, status, wait_until
 
 from note_taker.extraction_queue import ExtractionQueue
@@ -214,6 +215,17 @@ def test_start_resets_interrupted_extractions_and_resumes(env):
     assert status(env, b, c2) == CaptureStatus.pending
     assert status(env, b, ready) == CaptureStatus.ready
     assert env.store.get(b).updated_at == before
+
+
+def test_start_survives_a_corrupt_batch(env, data_paths):
+    corrupt_batch(data_paths)
+    b = env.store.create(None).id
+    stuck = env.add(b, "a.png", status=CaptureStatus.extracting)
+    pending = env.add(b, "b.png")
+    q = env.queue(FakeExtractor(healthy=False))
+    q.start()
+    wait_until(lambda: env.cap(b, stuck).error and env.cap(b, pending).error)
+    assert status(env, b, stuck) == CaptureStatus.pending
 
 
 def test_resume_pending_counts_only_pending_photo_captures(env):

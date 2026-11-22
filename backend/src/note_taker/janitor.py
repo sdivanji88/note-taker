@@ -58,7 +58,7 @@ class Janitor:
         report = JanitorReport()
         try:
             settings, now = self._settings(), self._now()
-            batches = self._store.list_readable()
+            batches = self._store.list()
         except Exception:
             log.exception("janitor could not list batches")
             return report

@@ -25,4 +25,15 @@ class RedactingFilter(logging.Filter):
         masked = mask_credentials(message)
         if masked != message:
             record.msg, record.args = masked, ()
+        # Tracebacks are formatted later by the handler, after this filter, and an exception
+        # message can embed a remote URL. Pre-rendering into exc_text (which Formatter
+        # reuses verbatim) lets us mask it, chained causes included.
+        if record.exc_info and not record.exc_text:
+            record.exc_text = mask_credentials(
+                logging.Formatter().formatException(record.exc_info)
+            )
+        elif record.exc_text:
+            record.exc_text = mask_credentials(record.exc_text)
+        if record.stack_info:
+            record.stack_info = mask_credentials(record.stack_info)
         return True

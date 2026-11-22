@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from note_taker.jsonio import read_json, write_json_atomic
+from note_taker.jsonio import quarantine, read_json, write_json_atomic
 from note_taker.markdown_writer import read_frontmatter
 from note_taker.models import Book, Kind, PendingBook
 from note_taker.paths import DataPaths
@@ -125,7 +125,7 @@ class BookCatalog:
         if data is None:
             return []
         if not isinstance(data, dict) or not isinstance(data.get("books"), list):
-            self._quarantine(path)
+            quarantine(path)
             return []
         books = []
         for item in data["books"]:
@@ -135,12 +135,6 @@ class BookCatalog:
                 # Drop only the bad entry; losing the whole list would lose every other pending book.
                 log.warning("dropping malformed pending book entry: %r", item)
         return books
-
-    def _quarantine(self, path: Path) -> None:
-        # Keep the bytes for manual recovery instead of letting the next write overwrite them.
-        backup = path.with_name(path.name + ".corrupt")
-        log.warning("unparseable pending books file; moved to %s", backup)
-        path.replace(backup)
 
     def _write_pending(self, pending: list[PendingBook]) -> None:
         write_json_atomic(
