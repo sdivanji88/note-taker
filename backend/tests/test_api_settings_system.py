@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from api_helpers import (
     connect,
     error_code,
     put_settings,
+    repo_path,
 )
 from conftest import corrupt_batch
 
@@ -99,6 +101,22 @@ def test_put_settings_rejects_unsafe_values(client, section, field, value):
     assert client.get("/settings", headers=H).json()[section][field] != value
 
 
+def test_put_settings_422_lists_offending_fields_and_keeps_the_message(client):
+    s = client.get("/settings", headers=H).json()
+    s["notes_repo"]["branch"] = "a b"
+    s["extractor"]["timeout_s"] = 0
+    r = client.put("/settings", headers=H, json=s)
+    assert r.status_code == 422
+    assert r.json() == {
+        "error": {
+            "code": "invalid_settings",
+            "message": "notes_repo.branch is not a valid branch name; "
+            "extractor.timeout_s must be between 1 and 3600",
+            "fields": ["notes_repo.branch", "extractor.timeout_s"],
+        }
+    }
+
+
 def test_put_settings_rejects_non_http_ollama_url(client):
     s = client.get("/settings", headers=H).json()
     s["extractor"]["ollama"]["base_url"] = "file:///etc/passwd"
@@ -147,6 +165,43 @@ def test_repo_connect_then_health_reports_cloned(client, bare_remote):
     assert body["repo"]["dirty"] is False
     assert body["remote"] == {"ok": True, "detail": "ok"}
     assert (Path(body["repo"]["path"]) / "README.md").exists()
+
+
+def _git(repo, *args):
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
+
+
+def test_health_repo_problem_is_null_when_not_cloned(client):
+    assert client.get("/health", headers=H).json()["repo"]["problem"] is None
+
+
+def test_health_repo_problem_is_null_when_clean(client, bare_remote):
+    connect(client, bare_remote)
+    assert client.get("/health", headers=H).json()["repo"]["problem"] is None
+
+
+def test_health_reports_wrong_branch_problem(client, bare_remote):
+    connect(client, bare_remote)
+    _git(repo_path(client), "checkout", "-b", "wip")
+    problem = client.get("/health", headers=H).json()["repo"]["problem"]
+    assert set(problem) == {"code", "message"}
+    assert problem["code"] == "wrong_branch"
+    assert "wip" in problem["message"] and "main" in problem["message"]
+
+
+def test_health_reports_remote_mismatch_problem_with_credentials_masked(client, bare_remote):
+    connect(client, bare_remote)
+    _git(repo_path(client), "remote", "set-url", "origin", "https://me:ghp_TOKEN@example.invalid/x.git")
+    r = client.get("/health", headers=H)
+    problem = r.json()["repo"]["problem"]
+    assert problem["code"] == "remote_mismatch"
+    assert "example.invalid" in problem["message"]
+    assert "ghp_TOKEN" not in r.text
+
+
+def test_repo_connect_response_includes_problem_null(client, bare_remote):
+    body = connect(client, bare_remote).json()
+    assert body["cloned"] is True and body["problem"] is None
 
 
 def test_repo_connect_bad_remote_is_400_with_stderr(client, tmp_path):

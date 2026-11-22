@@ -9,6 +9,7 @@ Single local user. Per-photo extraction ≤180s timeout (concurrency 1, Ollama o
 Specific targets:
 
 - **Latency (p50 / p95 / p99):** non-extraction API calls <200ms locally
+- **Image previews:** `GET /captures/{id}/image` decodes the 12 MP original once per capture and rotation, then serves a cached <=2000 px JPEG; repeat views are a file read, or a 304 when the browser's ETag still matches (no disk work). Only the first view of a photo pays the decode.
 - **Throughput:** extraction is the bottleneck: ~1 photo at a time, ≤180s timeout each
 - **Resource budget (CPU / memory):** one local vision model in memory (Ollama); backend itself small
 - **Startup time:** backend healthy within 20s of Electron launch (Electron gives up after 20s)
@@ -21,7 +22,8 @@ Specific targets:
 
 - **Concurrent users:** 1
 - **Requests per second sustained:** n/a (local UI)
-- **Data volume (total / growth rate):** local: only open batches (photos + JSON); repo: markdown text only
+- **Data volume (total / growth rate):** local: only open batches (photos + previews + JSON); repo: markdown text only
+- **Preview disk footprint:** roughly 10-20 MB per 30-photo batch (one ~300-700 KB JPEG per viewed capture); freed when the batch is pushed, discarded or expires, and a capture's previews are removed when it is deleted
 - **Failure isolation boundary:** per capture (one failed extraction never fails the batch) and per push (failure rolls back only the app's own changes)
 
 ## Observability

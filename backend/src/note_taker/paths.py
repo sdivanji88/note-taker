@@ -34,6 +34,14 @@ class DataPaths:
     def photos_dir(self, id: str) -> Path:
         return self.batch_dir(id) / "photos"
 
+    def previews_dir(self, id: str) -> Path:
+        return self.batch_dir(id) / "previews"
+
+    def preview_file(self, batch_id: str, capture_id: str, rotation: int) -> Path:
+        # Rotation is in the name so turning a photo makes the old preview unreachable
+        # rather than needing invalidation logic.
+        return self.previews_dir(batch_id) / f"{capture_id}-r{rotation}.jpg"
+
 
 def repo_dir(paths: DataPaths, settings: Settings) -> Path:
     local = settings.notes_repo.local_path

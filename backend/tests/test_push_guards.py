@@ -1,5 +1,6 @@
 """The app only ever pushes from (and syncs) the configured branch of the configured remote."""
 
+import shutil
 import subprocess
 
 import pytest
@@ -89,6 +90,19 @@ def test_push_accepts_origin_that_differs_only_by_git_suffix_or_slash(env, confi
 
     assert env.svc.push(batch.id).highlights_written == 1
     assert remote_text(env) is not None
+
+
+def test_clone_problem_is_none_for_a_healthy_clone_and_a_missing_one(env):
+    assert env.svc.clone_problem() is None
+    shutil.rmtree(env.clone)
+    assert env.svc.clone_problem() is None
+
+
+def test_clone_problem_names_the_wrong_branch(env):
+    git(env.clone, "checkout", "-b", "wip")
+    problem = env.svc.clone_problem()
+    assert isinstance(problem, PushError) and problem.code == "wrong_branch"
+    assert "wip" in str(problem)
 
 
 def test_sync_does_not_rebase_a_wrong_branch(env, tmp_path):

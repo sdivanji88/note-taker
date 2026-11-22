@@ -263,6 +263,17 @@ class PushService:
         if (problem := self._clone_mismatch(git)) is not None:
             raise problem
 
+    def clone_problem(self) -> PushError | None:
+        """Why a push from the existing clone would be refused for branch/remote reasons.
+
+        None when the clone is missing (that is "not connected", reported elsewhere) or
+        fine. The message is already credential-masked and names actual and expected.
+        Shown on /health so the user sees it before a push fails; sync() keeps logging
+        the same condition at info level because it is routine there, not a warning.
+        """
+        git = self._git_factory()
+        return self._clone_mismatch(git) if git.is_cloned() else None
+
     def _clone_mismatch(self, git: GitPublisher) -> PushError | None:
         # Pushing does `HEAD:refs/heads/<branch>`, so from any other branch it would
         # publish that branch's commits to the configured one; and an `origin` other

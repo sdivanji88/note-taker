@@ -1,4 +1,3 @@
-import io
 import logging
 from datetime import datetime
 
@@ -6,7 +5,6 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from starlette.concurrency import run_in_threadpool
 
-from note_taker import imaging
 from note_taker.api.deps import ApiError, Services, Svc, ensure_not_pushing
 from note_taker.api.uploads import UploadedFile, stream_files
 from note_taker.batch_store import BatchNotFound, DuplicatePhoto, UnsupportedImage
@@ -211,18 +209,29 @@ def _store_photo(batch_id: str, upload: UploadedFile, svc: Services) -> dict:
 
 
 @router.get("/captures/{capture_id}/image")
-def capture_image(capture_id: str, svc: Svc) -> Response:
+def capture_image(capture_id: str, request: Request, svc: Svc) -> Response:
     batch, capture = _find(svc, capture_id)
     if not capture.image_file:
         raise ApiError(404, "no_image", "this capture has no photo")
-    path = svc.store.photo_path(batch.id, capture)
+    # The picture is a pure function of (capture, rotation), so that pair is the ETag.
+    # "no-cache" (not "no-store") makes the browser revalidate each time: a turn shows
+    # at once, and an unchanged photo costs a 304 instead of a decode.
+    etag = f'"{capture.id}-r{capture.rotation}"'
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if _etag_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers=headers)
     try:
-        img = imaging.load_upright(path, capture.rotation).convert("RGB")
+        data = svc.store.preview_jpeg(batch.id, capture)
     except FileNotFoundError:
         raise ApiError(404, "no_image", "the photo for this capture is missing") from None
-    buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=90)
-    return Response(buf.getvalue(), media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    return Response(data, media_type="image/jpeg", headers=headers)
+
+
+def _etag_matches(if_none_match: str | None, etag: str) -> bool:
+    if not if_none_match:
+        return False
+    candidates = {t.strip().removeprefix("W/") for t in if_none_match.split(",")}
+    return etag in candidates or "*" in candidates
 
 
 @router.patch("/captures/{capture_id}")
@@ -316,10 +325,9 @@ def delete_capture(capture_id: str, svc: Svc) -> Response:
         b.captures = [c for c in b.captures if c.id != capture_id]
 
     svc.store.modify(batch.id, change)
-    if removed.image_file:
-        # After the batch.json write: a crash in between leaves an orphan photo in the
-        # batch folder (deleted with the batch), never a capture pointing at nothing.
-        svc.store.photo_path(batch.id, removed).unlink(missing_ok=True)
+    # After the batch.json write: a crash in between leaves an orphan photo in the
+    # batch folder (deleted with the batch), never a capture pointing at nothing.
+    svc.store.drop_photo(batch.id, removed)
     log.info("capture deleted batch=%s capture=%s", batch.id, capture_id)
     return Response(status_code=204)
 

@@ -108,6 +108,39 @@ def test_validation_errors_use_error_shape_without_echoing_input(client):
     assert error_code(r) == "invalid_request"
 
 
+def test_validation_422_fields_are_body_stripped_dotted_paths(client):
+    r = client.post("/books", headers=H, json={"title": "  ", "kind": "poetry"})
+    assert r.status_code == 422
+    assert r.json()["error"]["fields"] == ["title", "kind"]
+    b = new_batch(client)
+    c = kindle(client, b)
+    r = client.patch(f"/captures/{c['id']}", headers=H, json={"highlights": [{"nope": 1}]})
+    assert r.status_code == 422
+    assert r.json()["error"]["fields"] == ["highlights.0.text", "highlights.0.nope"]
+
+
+def test_validation_fields_deduplicate_and_keep_order():
+    from note_taker.api.errors import _validation_fields
+
+    errors = [
+        {"loc": ("body", "b", 0)},
+        {"loc": ("body", "a")},
+        {"loc": ("body", "b", 0)},
+        {"loc": ("query", "q")},
+        {"loc": ("body", 3)},  # a JSON syntax error: a char offset, not a field
+    ]
+    assert _validation_fields(errors) == ["b.0", "a", "query.q"]
+
+
+def test_errors_without_offending_fields_omit_the_key(client):
+    for r in (
+        client.get("/nope", headers=H),
+        client.get("/batches/01ARZ3NDEKTSV4RRFFQ69G5FAV", headers=H),
+        client.post("/books", headers=H, content=b"{not json"),  # 422 with nothing nameable
+    ):
+        assert "fields" not in r.json()["error"], r.text
+
+
 def test_unhandled_error_is_500_without_details(client, monkeypatch):
     svc = client.app.state.services
 

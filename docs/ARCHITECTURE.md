@@ -38,9 +38,16 @@ For each module, document:
 3. ReviewEditor edits → `PATCH /captures/{id}` (autosave) → approve
 4. "Push all approved" → `POST /batches/{id}/push` → PushService: lock → dirty check → pull --rebase → MarkdownWriter appends sections with `nt:highlight` markers → one commit (`Note-Taker-Batch:` trailer) → push → captures `pushed` → delete batch folder if finished
 
+## API conventions
+
+- **Errors:** every failure is `{"error": {"code", "message"[, "fields"]}}`. `fields` is additive and present only on 422s that can name inputs: a list of dotted paths, e.g. `["notes_repo.branch", "extractor.timeout_s"]` (Settings validation) or `["highlights.0.text"]` (pydantic; the leading `body` is dropped, duplicates removed, order kept). `message` is unchanged and stays the human summary.
+- **`GET /health` and `POST /repo/connect`** share `repo: {"cloned", "dirty", "path", "problem"}`. `problem` is always present: `null`, or `{"code": "wrong_branch" | "remote_mismatch" | "git_failed", "message": "<credential-masked text naming actual and expected>"}`. It is computed live by `PushService.clone_problem()` (the same check a push applies; `null` when the clone is missing) so the UI can warn before a push is refused.
+- **`DELETE /batches/{id}?only_if_empty=true`** means "ensure an empty batch is gone": it deletes only an open batch with no captures and returns 204 either way (404 only for an unknown id), so UI back-out cleanup cannot race an in-flight upload.
+- **`GET /captures/{id}/image`** serves a cached, upright JPEG (long edge <= 2000 px) with `ETag: "<capture_id>-r<rotation>"` and `Cache-Control: private, no-cache`; a matching `If-None-Match` gets a 304 before any disk work. `?token=` auth still applies (it is an `<img>` source).
+
 ## Persistence model
 
-File-based, no database. Data dir `~/Library/Application Support/note-taker-frontend/` (Electron userData; override with `NOTE_TAKER_DATA_DIR`): `settings.json`, `pending_books.json`, `batches/<id>/batch.json` + `photos/`, `repo/` (default clone).
+File-based, no database. Data dir `~/Library/Application Support/note-taker-frontend/` (Electron userData; override with `NOTE_TAKER_DATA_DIR`): `settings.json`, `pending_books.json`, `batches/<id>/batch.json` + `photos/` + `previews/`, `repo/` (default clone). `previews/<capture_id>-r<rotation>.jpg` is a disposable cache of the downscaled image route, owned by `BatchStore` (`preview_jpeg`/`drop_photo`): the rotation in the name makes a turn a cache miss, writing one preview removes that capture's other rotations, and the folder goes with the batch. Photos and previews are never committed to the notes repo.
 Entities (spec §6, §12.1): Settings; Book (frontmatter of `books/<slug>.md`); PendingBook; Batch 1—n Capture; Capture 1—n Highlight. Page/chapter/captured_at/book live on Capture; text/note on Highlight. Capture states: pending → extracting → ready|failed → approved → pushed (| discarded). No migrations: models are versionless JSON in v1; add a `schema_version` field if the shape changes.
 
 ## External dependencies

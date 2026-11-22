@@ -27,6 +27,16 @@ def _extractor_health(svc: Services) -> dict:
         return {"kind": kind, "ok": False, "detail": mask_credentials(str(exc) or type(exc).__name__)}
 
 
+def _repo_problem(svc: Services) -> dict | None:
+    # Live, not cached: the user may fix the clone in a terminal and expect the next
+    # health refresh to clear it. PushService owns the comparison; its git_failed message
+    # is raw git stderr, so mask here too (idempotent for the already-masked ones).
+    problem = svc.push.clone_problem()
+    if problem is None:
+        return None
+    return {"code": problem.code, "message": mask_credentials(str(problem))}
+
+
 def _repo_health(svc: Services) -> dict:
     git = svc.git_factory()
     cloned = git.is_cloned()
@@ -36,7 +46,7 @@ def _repo_health(svc: Services) -> dict:
             dirty = git.is_dirty(svc.settings().notes_repo.books_dir)
         except GitError as exc:
             log.warning("health: dirty check failed: %s", _git_detail(exc))
-    return {"cloned": cloned, "dirty": dirty, "path": str(git.repo_dir)}
+    return {"cloned": cloned, "dirty": dirty, "path": str(git.repo_dir), "problem": _repo_problem(svc)}
 
 
 def _remote_health(svc: Services) -> dict:
