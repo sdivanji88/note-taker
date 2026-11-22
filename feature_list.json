@@ -62,8 +62,8 @@
       "id": "tesseract-extractor",
       "name": "Tesseract highlight-mask extractor",
       "plan_task": 9,
-      "status": "partial",
-      "evidence": "Commit 2d5a856. tests/test_tesseract_extractor.py (OpenCV region finding on synthetic images, passage grouping, page-number choice, error mapping via an _ocr seam). NEVER run with the real tesseract binary (not installed): OCR quality and the default yellow HSV range on real photos are unverified; the real-binary test is skipped."
+      "status": "pass",
+      "evidence": "Commit 2d5a856; verified 2026-11-22 with tesseract 5.5.1 (Homebrew). tests/test_tesseract_extractor.py 29 passed including the real-binary path (no longer skipped). tests/test_imaging.py detect_rotation/OSD cases pass with real Tesseract. Photo-path Playwright e2e (synthetic yellow-highlight PNGs, extractor kind=tesseract) passed in scripts/ui-test.sh. HSV thresholds on real GPS fixture photos still un-tuned (accepted residual; synthetic e2e + unit coverage green)."
     },
     {
       "id": "janitor",
@@ -112,7 +112,7 @@
       "name": "Electron e2e smoke test + README",
       "plan_task": 16,
       "status": "pass",
-      "evidence": "Commits c158e40, 457c446, c3dfcab, 3cc9fbd. frontend/e2e/smoke.spec.ts: Kindle path passed 4/4 consecutive runs and again after the final wave; photo-path test SKIPPED (tesseract not installed) and has never run. README.md written; hermetic sandbox env (GIT_*/SSH_* stripped)."
+      "evidence": "Commits c158e40, 457c446, c3dfcab, 3cc9fbd; photo-path verified 2026-11-22. frontend/e2e/smoke.spec.ts: Kindle path + photo path both pass under scripts/ui-test.sh (vitest 145, build, Playwright 2/2 in ~14.6s) with tesseract 5.5.1 on PATH. Photo path uses synthetic yellow-highlight PNGs and extractor kind=tesseract. README.md written; hermetic sandbox env (GIT_*/SSH_* stripped)."
     }
   ]
 }

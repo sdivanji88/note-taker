@@ -98,3 +98,25 @@
 **Benchmark Results**: live suite 382.68 s (p163 + 9 fixtures).
 
 **Next session**: Tesseract/HSV/photo-path e2e, then the `recover()` timeout fix.
+
+
+### Session 4 -- 2026-11-22 (Tesseract + photo-path e2e)
+
+**Duration**: ~20 min
+**Goal**: Unblock the photo-path e2e gate with a real Tesseract binary.
+
+**What was done**:
+- Confirmed tesseract 5.5.1 already installed via Homebrew (`/opt/homebrew/bin/tesseract`).
+- Real-binary Tesseract + OSD/rotation unit tests pass (previously skipped).
+- `bash scripts/ui-test.sh`: vitest 145, build, Playwright 2/2 including photo path (5.6s) with synthetic yellow-highlight PNGs.
+- Updated `feature_list.json` (`tesseract-extractor` → pass, e2e evidence), deferred findings, session-handoff.
+
+**Decisions**:
+- HSV tuning on real GPS fixtures deferred as optional residual; synthetic e2e + unit coverage is enough for the pending gate.
+
+**Issues**:
+- Vitest still prints the noisy stderr-ring-buffer fixture (documented earlier).
+
+**Benchmark Results**: ui-test Playwright ~14.6s total (2 tests); photo path 5.6s.
+
+**Next session**: `recover()` timeout fix, or merge/PR `feat/ollama-live-validation`.

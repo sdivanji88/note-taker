@@ -24,7 +24,7 @@ Findings from the per-task reviews and the final whole-branch review that were *
 
 ## Known limitations (accepted for v1)
 
-- **Never run against real tools:** Tesseract was not installed where this was built (Ollama live validation Pass 1 + 2 are complete with default `qwen2.5vl:7b`; see the Ollama item above). OCR quality, highlight-detection thresholds (yellow HSV range, kernel size, no crop padding), two-column highlight merging, and rotation detection are untested on real photos. The photo-path e2e test and the Tesseract-OSD rotation test are skipped without Tesseract and have never run. Run `uv run pytest -m live` and the e2e after `brew install tesseract`, and keep the 7 real photos in `backend/tests/fixtures/` (gitignored, they carry GPS) for tuning.
+- **Tesseract binary + photo-path e2e done (2026-11-22):** tesseract 5.5.1 on PATH; real-binary unit tests and OSD rotation tests pass; `scripts/ui-test.sh` photo-path Playwright e2e passed (synthetic yellow-highlight PNGs). Residual: yellow HSV range / kernel / two-column merge quality on the gitignored real GPS fixture photos is still un-tuned — optional polish if OCR misses highlights on phone photos. Keep those fixtures local for tuning.
 - The photo `mtime` fallback for `captured_at` is the upload time (only EXIF gives the real photo time).
 - A retry's requested extractor kind is forgotten if the extractor was unhealthy and the capture is re-queued; `extractor.concurrency` / `timeout_s` are read once at startup.
 - A crash mid-write of a book file can leave a partial unmarked section at the tail; a retry appends a complete copy after it (the user can hand-fix).
