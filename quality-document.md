@@ -7,7 +7,7 @@
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
 | Build & Compile | A | `npm run build` (typecheck + electron-vite) clean; `uv sync` clean; no warnings in test output. |
-| Feature Completeness | B | 15 of 16 features `pass`, 1 `partial` (Tesseract extractor has never run against the real binary; the Ollama extractor passed live validation on `qwen2.5vl:7b`). All v1 spec goals implemented; non-goals respected. |
+| Feature Completeness | A- | 16 of 16 features `pass` (Ollama live-validated on `qwen2.5vl:7b`; Tesseract 5.5.1 + photo-path e2e green 2026-11-22). All v1 spec goals implemented; non-goals respected. Residual: HSV tuning on real GPS photos optional; `recover()` startup timeout still open. |
 | Test Coverage | B+ | 423 backend tests (real git against a bare remote, concurrent pushes, crash recovery), 145 frontend tests, hermetic Kindle-path Electron e2e. Gaps: real-tool tests skipped/deselected; photo-path e2e never run. |
 | Documentation | B | README, ARCHITECTURE, PRODUCT, RELIABILITY and the spec are current; `docs/deferred-findings.md` lists what is open. No user-facing screenshots/walkthrough. |
 | Architecture Adherence | A- | `architecture-review.sh` passes (no file over 500 LOC; imports ≤ 15) with one documented exemption (composition roots `api/app.py`, `api/deps.py`). |
@@ -39,7 +39,7 @@ Not benchmarked. Operation timeouts are enforced instead: git 20 s local / 60 s 
 
 - `clean-state-checklist.md`: build, architecture, data-integrity and script items verified via the gate scripts; runtime smoke test = e2e Kindle path.
 - `evaluator-rubric.md`: 4.0 / 5 overall.
-- `feature_list.json`: 14 of 16 at status "pass" (2 "partial").
+- `feature_list.json`: 16 of 16 at status "pass".
 - `scripts/test.sh`: PASS (423 backend + 145 frontend; 2 tests skipped without Tesseract).
 - `scripts/integration.sh`: PASS (188 backend integration tests).
 - `scripts/architecture-review.sh`: PASS.
