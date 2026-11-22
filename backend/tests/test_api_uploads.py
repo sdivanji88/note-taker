@@ -144,3 +144,19 @@ def test_image_for_kindle_or_unknown_capture_is_404(client):
     r = client.get("/captures/01ARZ3NDEKTSV4RRFFQ69G5FAV/image", headers=H)
     assert r.status_code == 404
     assert error_code(r) == "capture_not_found"
+
+
+def test_upload_with_corrupt_exif_is_not_a_server_error(client, make_image, monkeypatch):
+    # Bad EXIF must only cost the photo its timestamp, never fail the upload.
+    import struct
+
+    from PIL import Image
+
+    def boom(self):
+        raise struct.error("unpack requires a buffer of 2 bytes")
+
+    monkeypatch.setattr(Image.Image, "getexif", boom)
+    b = new_batch(client)
+    r = upload(client, b, make_image("bad-exif.jpg", fmt="JPEG"))
+    assert r.status_code == 200
+    assert len(r.json()["created"]) == 1

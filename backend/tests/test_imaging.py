@@ -1,6 +1,7 @@
 import io
 import os
 import shutil
+import struct
 from datetime import datetime
 
 import pytesseract
@@ -68,6 +69,20 @@ def test_captured_at_ignores_garbage_exif(make_image):
     assert captured_at(p, dt(2000, 1, 1)) == when
 
 
+@pytest.mark.parametrize("exc", [struct.error("bad"), TypeError("x"), AttributeError("x"), KeyError("x")])
+def test_captured_at_falls_back_on_any_exif_parser_failure(make_image, monkeypatch, exc):
+    # Pillow's EXIF parsers raise a grab-bag of exception types on malformed data.
+    p = make_image("m.jpg", fmt="JPEG", exif_datetime="2026:11:08 21:14:05")
+    when = dt(2026, 10, 1, 12, 30)
+    os.utime(p, (when.timestamp(), when.timestamp()))
+
+    def boom(self):
+        raise exc
+
+    monkeypatch.setattr(Image.Image, "getexif", boom)
+    assert captured_at(p, dt(2000, 1, 1)) == when
+
+
 def test_captured_at_missing_file_uses_fallback(tmp_path):
     fallback = dt(2026, 11, 9)
     assert captured_at(tmp_path / "nope.jpg", fallback) == fallback
@@ -130,3 +145,23 @@ def test_detect_rotation_never_raises_on_unreadable_file(tmp_path):
     p = tmp_path / "broken.png"
     p.write_bytes(b"\x89PNG\r\n\x1a\nnot really")
     assert detect_rotation(p) == 0
+
+
+def test_detect_rotation_bounds_osd_with_a_timeout(make_image, monkeypatch):
+    seen = {}
+
+    def fake_osd(*a, **k):
+        seen.update(k)
+        return {"rotate": 90, "orientation_conf": 9.0}
+
+    monkeypatch.setattr(imaging.pytesseract, "image_to_osd", fake_osd)
+    assert detect_rotation(make_image("x.png")) == 90
+    assert seen["timeout"] == imaging._OSD_TIMEOUT_S == 30
+
+
+def test_detect_rotation_returns_zero_when_osd_times_out(make_image, monkeypatch):
+    def timed_out(*a, **k):
+        raise RuntimeError("Tesseract process timeout")  # what pytesseract raises
+
+    monkeypatch.setattr(imaging.pytesseract, "image_to_osd", timed_out)
+    assert detect_rotation(make_image("x.png", pixel_rotation=90)) == 0

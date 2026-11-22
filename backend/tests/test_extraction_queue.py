@@ -5,6 +5,7 @@ from conftest import corrupt_batch
 from queue_helpers import GatedExtractor, _drain, queue_env, status, wait_until
 
 from note_taker.extraction_queue import ExtractionQueue
+from note_taker.extractors.base import HealthStatus
 from note_taker.extractors.fake import FakeExtractor
 from note_taker.models import (
     CaptureStatus,
@@ -68,6 +69,17 @@ def test_queue_empty_result_is_ready_with_no_highlights(env):
     assert env.cap(b, cid).highlights == []
 
 
+def test_queue_keeps_margin_note_when_there_are_no_highlights(env):
+    b = env.store.create(None).id
+    cid = env.add(b, "a.png")
+    q = env.queue(FakeExtractor(result=ExtractionResult(note="only a margin note")))
+    q.start()
+    q.enqueue(b, cid)
+    wait_until(lambda: status(env, b, cid) == CaptureStatus.ready)
+    # Empty text keeps it unapprovable, so nothing blank can be pushed.
+    assert [(h.text, h.note) for h in env.cap(b, cid).highlights] == [("", "only a margin note")]
+
+
 def test_queue_error_sets_failed(env):
     b = env.store.create(None).id
     cid = env.add(b, "a.png")
@@ -122,6 +134,46 @@ def test_queue_unhealthy_leaves_pending_then_resumes(env):
     assert q.resume_pending() == 1
     wait_until(lambda: status(env, b, cid) == CaptureStatus.ready)
     assert env.cap(b, cid).error is None
+
+
+def test_unhealthy_tick_does_not_rewrite_batch_or_republish_same_error(env):
+    b = env.store.create(None).id
+    cid = env.add(b, "a.png")
+    q = env.queue(FakeExtractor(healthy=False))
+    events = env.bus.subscribe(b)
+    q.start()
+    q.enqueue(b, cid)
+    wait_until(lambda: (env.cap(b, cid).error or "").startswith("extractor unavailable: "))
+    wait_until(lambda: any(t == "capture.status_changed" for t, _ in _drain(events)))
+    mtime = env.store._paths.batch_file(b).stat().st_mtime_ns
+
+    for _ in range(3):  # what the 30 s health tick does
+        assert q.resume_pending() == 1
+        time.sleep(0.2)
+
+    assert env.store._paths.batch_file(b).stat().st_mtime_ns == mtime
+    assert [t for t, _ in _drain(events)] == []
+
+
+def test_unhealthy_error_change_writes_and_publishes_once(env):
+    b = env.store.create(None).id
+    cid = env.add(b, "a.png")
+    ext = FakeExtractor(healthy=False)
+    q = env.queue(ext)
+    events = env.bus.subscribe(b)
+    q.start()
+    q.enqueue(b, cid)
+    wait_until(lambda: (env.cap(b, cid).error or "").startswith("extractor unavailable: "))
+    _drain(events)
+
+    ext.health = lambda: HealthStatus(ok=False, detail="a different reason")
+    q.resume_pending()
+    wait_until(lambda: env.cap(b, cid).error == "extractor unavailable: a different reason")
+    time.sleep(0.2)
+    seen = _drain(events)
+    assert [(t, d["error"]) for t, d in seen] == [
+        ("capture.status_changed", "extractor unavailable: a different reason")
+    ]
 
 
 def test_health_loop_resumes_pending_automatically(env):
