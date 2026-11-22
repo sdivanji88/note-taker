@@ -120,3 +120,24 @@
 **Benchmark Results**: ui-test Playwright ~14.6s total (2 tests); photo path 5.6s.
 
 **Next session**: `recover()` timeout fix, or merge/PR `feat/ollama-live-validation`.
+
+### Session 5 -- 2026-11-22 (v1 open gaps)
+
+**Duration**: ~45 min
+**Goal**: Close the three remaining real gaps after PR #2 merged to main.
+
+**What was done**:
+- TDD: `test_recover_uses_short_fetch_timeout`; `recover()` now calls `git.fetch(timeout_s=_SYNC_TIMEOUT_S)`.
+- Hard gates: test.sh, integration.sh, architecture-review.sh, lint.sh green. Soft code-review.sh writes a report (claude CLI unavailable).
+- Smoke: token-guarded `/health` + `/ping` on 127.0.0.1:8765.
+- Script hygiene: exclude `.worktrees` from architecture scan; fix code-review.sh heredoc.
+
+**Decisions**:
+- Treat deferred “Should fix soon” items as post-v1 polish, not blockers.
+
+**Issues**:
+- claude CLI too old / fails for LLM audit stages (architecture stage 2 skipped cleanly when no FAIL line; code-review uses placeholder).
+
+**Benchmark Results**: unit ~38s; integration ~23s; smoke ~2s to ping.
+
+**Next session**: Merge `fix/recover-fetch-timeout`; optional deferred polish.

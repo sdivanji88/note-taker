@@ -45,7 +45,7 @@ Output a markdown report with these sections:
 One-paragraph overall assessment.
 
 ## Findings
-For each finding: severity (high/medium/low), file:line, what's wrong, suggested fix.
+For each finding: severity (high/medium/low), file:line, what is wrong, suggested fix.
 
 ## Architecture rule violations
 Specifically flag violations of: deep modules, information hiding, defining errors out of existence, pulling complexity downward, naming/commenting.
