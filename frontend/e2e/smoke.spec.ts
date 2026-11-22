@@ -124,6 +124,30 @@ test('kindle highlights go from the app to a pushed markdown file', async () => 
   await pushAndVerify(page, [/Memory is the city we rebuild every morning\./, /Dreams outlast the dreamer\./])
 })
 
+test('backing out of an empty batch or a blank Kindle capture leaves nothing behind', async () => {
+  const page = await launch()
+  const batchDirs = () => readdirSync(join(sb.dataDir, 'batches'))
+
+  // New batch, change of mind: the empty batch is deleted, not left as an "Empty" row.
+  await page.getByRole('button', { name: 'New batch', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Add Kindle highlight' })).toBeVisible()
+  await page.getByRole('button', { name: '← Batches' }).click()
+  await expect(page.getByText('No open batches')).toBeVisible()
+  expect(batchDirs()).toEqual([])
+
+  // A Kindle capture opened and left blank is deleted on Back, which then leaves the
+  // batch empty again, and backing out of that removes it too.
+  await page.getByRole('button', { name: 'New batch', exact: true }).click()
+  await page.getByRole('button', { name: 'Add Kindle highlight' }).click()
+  await expect(page.getByLabel('Highlight text')).toBeVisible()
+  await page.getByRole('button', { name: '← Back to batch' }).click()
+  await expect(page.getByText('Add Kindle highlight')).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Review/ })).toBeDisabled()
+  await page.getByRole('button', { name: '← Batches' }).click()
+  await expect(page.getByText('No open batches')).toBeVisible()
+  expect(batchDirs()).toEqual([])
+})
+
 test.describe('photo path', () => {
   test.skip(!hasTesseract(), 'tesseract is not on PATH (brew install tesseract); photo path needs real OCR')
 

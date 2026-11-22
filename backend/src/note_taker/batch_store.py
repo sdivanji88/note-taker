@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import shutil
 import threading
 from collections.abc import Callable
@@ -17,6 +18,10 @@ from note_taker.models import Batch, Capture, CaptureStatus, Highlight, Source
 from note_taker.paths import DataPaths
 
 log = logging.getLogger(__name__)
+
+# Long edge of the previews the UI shows: plenty for reading a page on screen, a fraction
+# of a 12 MP phone photo's decode and transfer cost.
+_PREVIEW_MAX_EDGE = 2000
 
 
 class BatchNotFound(Exception):
@@ -62,6 +67,7 @@ class BatchStore:
     def __init__(self, paths: DataPaths, now: Callable[[], datetime] = utcnow):
         self._paths = paths
         self._now = now
+        self._reported_unreadable: set[str] = set()
 
     def create(self, default_book_slug: str | None) -> Batch:
         with _LOCK:
@@ -81,32 +87,34 @@ class BatchStore:
         return Batch.model_validate(data)
 
     def list(self) -> list[Batch]:
-        with _LOCK:
-            root = self._paths.batches_dir
-            if not root.exists():
-                return []
-            batches = [
-                Batch.model_validate(data)
-                for d in root.iterdir()
-                if (data := read_json(d / "batch.json")) is not None
-            ]
-        return sorted(batches, key=lambda b: b.created_at)
+        """Every readable batch, oldest first.
 
-    def list_readable(self) -> list[Batch]:
-        # For the janitor: one corrupt batch.json must not hide every other batch from
-        # expiry, whereas list() fails loudly so API callers notice corruption.
+        Anything that isn't a readable batch is skipped rather than raised: callers like
+        the batch list, startup and the janitor need every other batch, and one stray
+        file (Finder's .DS_Store) or bad batch.json must not take them all down. A bad
+        batch is warned about once per process, then logged quietly, because the
+        janitor and UI list repeatedly and would flood the log with the same line.
+        """
         with _LOCK:
             root = self._paths.batches_dir
             if not root.exists():
                 return []
             batches = []
             for d in root.iterdir():
+                if not d.is_dir():
+                    continue
                 try:
                     data = read_json(d / "batch.json")
                     if data is not None:
                         batches.append(Batch.model_validate(data))
-                except Exception:
-                    log.warning("skipping unreadable batch %s", d.name, exc_info=True)
+                # ValueError: JSON, UnicodeDecode and pydantic validation errors.
+                except (ValueError, OSError) as exc:
+                    first = d.name not in self._reported_unreadable
+                    self._reported_unreadable.add(d.name)
+                    log.log(
+                        logging.WARNING if first else logging.DEBUG,
+                        "skipping unreadable batch %s: %s", d.name, exc,
+                    )
         return sorted(batches, key=lambda b: b.created_at)
 
     def save(self, batch: Batch, touch: bool = True) -> Batch:
@@ -184,8 +192,8 @@ class BatchStore:
         with _LOCK:
             batch = self.get(batch_id)
             for c in batch.captures:
-                if c.id == capture_id and c.image_file:
-                    self.photo_path(batch_id, c).unlink(missing_ok=True)
+                if c.id == capture_id:
+                    self.drop_photo(batch_id, c)
             batch.captures = [c for c in batch.captures if c.id != capture_id]
             self.save(batch)
 
@@ -201,6 +209,55 @@ class BatchStore:
         if not _is_valid_id(batch_id):
             raise BatchNotFound(batch_id)
         return self._paths.photos_dir(batch_id) / capture.image_file
+
+    def preview_jpeg(self, batch_id: str, capture: Capture) -> bytes:
+        """Upright JPEG of the capture's photo, long edge <= 2000 px, cached on disk.
+
+        Generated via `imaging.downscaled_jpeg_bytes`, so EXIF orientation and the
+        capture's own rotation are applied exactly as for extraction. The cache lives
+        in the batch folder (freed with the batch) and is keyed by rotation, so a turn
+        simply misses. Raises FileNotFoundError if the photo is missing.
+        """
+        cached = self._paths.preview_file(batch_id, capture.id, capture.rotation)
+        try:
+            return cached.read_bytes()
+        except FileNotFoundError:
+            pass
+        photo = self.photo_path(batch_id, capture)
+        # Decoded outside _LOCK: a 12 MP decode would stall every batch.json write.
+        data = imaging.downscaled_jpeg_bytes(photo, _PREVIEW_MAX_EDGE, capture.rotation)
+        self._cache_preview(cached, photo, capture.id, data)
+        return data
+
+    def _cache_preview(self, target: Path, photo: Path, capture_id: str, data: bytes) -> None:
+        # Best effort: a failed cache write only costs a re-decode next time.
+        try:
+            with _LOCK:  # same lock as delete/drop_photo, so we can't race their cleanup
+                if not photo.exists():
+                    return  # capture or batch was dropped while we decoded
+                # No parents=True: a batch deleted meanwhile must not be resurrected.
+                target.parent.mkdir(exist_ok=True)
+                tmp = target.with_suffix(".tmp")
+                tmp.write_bytes(data)
+                os.replace(tmp, target)
+                self._unlink_previews(target.parent, capture_id, keep=target)
+        except OSError as exc:
+            log.debug("preview not cached for capture %s: %s", capture_id, exc)
+
+    @staticmethod
+    def _unlink_previews(folder: Path, capture_id: str, keep: Path | None = None) -> None:
+        # Every rotation's file for this capture; a turned photo's old previews are dead.
+        for stale in folder.glob(f"{capture_id}-r*.jpg"):
+            if stale != keep:
+                stale.unlink(missing_ok=True)
+
+    def drop_photo(self, batch_id: str, capture: Capture) -> None:
+        """Ensure the capture's original photo and all its previews are gone (idempotent)."""
+        if not capture.image_file:
+            return
+        with _LOCK:
+            self.photo_path(batch_id, capture).unlink(missing_ok=True)
+            self._unlink_previews(self._paths.previews_dir(batch_id), capture.id)
 
     def delete(self, batch_id: str) -> None:
         # Whole folder: photos must never outlive their batch.

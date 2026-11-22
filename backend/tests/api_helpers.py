@@ -32,7 +32,8 @@ def remote_text(remote: Path, rel: str) -> str | None:
 def error_code(resp) -> str:
     body = resp.json()
     assert set(body) == {"error"}, body
-    assert set(body["error"]) == {"code", "message"}, body
+    # `fields` is additive and only present on 422s that can name offending inputs.
+    assert {"code", "message"} <= set(body["error"]) <= {"code", "message", "fields"}, body
     return body["error"]["code"]
 
 

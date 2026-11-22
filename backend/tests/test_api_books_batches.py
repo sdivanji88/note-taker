@@ -134,6 +134,36 @@ def test_delete_batch_removes_folder(client):
     assert client.get(f"/batches/{b['id']}", headers=H).status_code == 404
 
 
+def _delete_if_empty(client, batch_id):
+    return client.delete(f"/batches/{batch_id}", headers=H, params={"only_if_empty": "true"})
+
+
+def test_delete_only_if_empty_removes_an_empty_batch(client):
+    b = client.post("/batches", headers=H, json={}).json()
+    assert _delete_if_empty(client, b["id"]).status_code == 204
+    assert client.get(f"/batches/{b['id']}", headers=H).status_code == 404
+
+
+def test_delete_only_if_empty_keeps_a_batch_with_captures_and_still_204(client):
+    b = client.post("/batches", headers=H, json={}).json()
+    client.post(f"/batches/{b['id']}/captures", headers=H, json={"source": "kindle", "highlights": [{"text": "x"}]})
+    assert _delete_if_empty(client, b["id"]).status_code == 204
+    assert len(client.get(f"/batches/{b['id']}", headers=H).json()["captures"]) == 1
+
+
+def test_delete_only_if_empty_unknown_batch_is_404(client):
+    r = _delete_if_empty(client, "01ARZ3NDEKTSV4RRFFQ69G5FAV")
+    assert r.status_code == 404
+    assert error_code(r) == "batch_not_found"
+
+
+def test_delete_only_if_empty_is_ignored_while_pushing(client):
+    b = client.post("/batches", headers=H, json={}).json()
+    _set_pushing(client, b["id"])
+    assert _delete_if_empty(client, b["id"]).status_code == 204
+    assert client.get(f"/batches/{b['id']}", headers=H).status_code == 200
+
+
 def test_list_batches_includes_expiry_fields(client):
     b = client.post("/batches", headers=H, json={}).json()
     client.post(f"/batches/{b['id']}/captures", headers=H, json={"source": "kindle", "highlights": [{"text": "x"}]})

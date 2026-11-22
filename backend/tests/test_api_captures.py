@@ -101,6 +101,33 @@ def test_patch_keeps_known_highlight_ids_and_mints_new_ones(client):
     assert len({h["id"] for h in hs}) == 3
 
 
+def test_patch_duplicate_ids_mint_fresh_ids_for_repeats(client):
+    b = new_batch(client)
+    c = kindle(client, b, texts=("one",))
+    hid = c["highlights"][0]["id"]
+    r = client.patch(
+        f"/captures/{c['id']}", headers=H,
+        json={"highlights": [
+            {"id": hid, "text": "first"},
+            {"id": hid, "text": "second"},
+            {"id": hid, "text": "third"},
+        ]},
+    )
+    hs = r.json()["highlights"]
+    assert hs[0]["id"] == hid  # the first use keeps the known id
+    assert len({h["id"] for h in hs}) == 3
+    assert [h["text"] for h in hs] == ["first", "second", "third"]
+
+
+def test_patch_known_id_is_kept_once_across_repeated_saves(client):
+    b = new_batch(client)
+    c = kindle(client, b, texts=("one",))
+    hid = c["highlights"][0]["id"]
+    for _ in range(2):
+        r = client.patch(f"/captures/{c['id']}", headers=H, json={"highlights": [{"id": hid, "text": "one"}]})
+        assert [h["id"] for h in r.json()["highlights"]] == [hid]
+
+
 @pytest.mark.parametrize(
     "field,value",
     [("image_file", "../../etc/passwd"), ("image_sha256", "x"), ("id", "X"), ("source", "photo"), ("error", "x")],

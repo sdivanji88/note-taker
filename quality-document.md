@@ -7,19 +7,19 @@
 | Dimension | Grade | Notes |
 |-----------|-------|-------|
 | Build & Compile | A | `npm run build` (typecheck + electron-vite) clean; `uv sync` clean; no warnings in test output. |
-| Feature Completeness | A- | 16 of 16 features `pass` (Ollama live-validated on `qwen2.5vl:7b`; Tesseract 5.5.1 + photo-path e2e green 2026-11-22). All v1 spec goals implemented; non-goals respected. Residual: HSV tuning on real GPS photos optional; `recover()` startup timeout still open. |
-| Test Coverage | B+ | 423 backend tests (real git against a bare remote, concurrent pushes, crash recovery), 145 frontend tests, hermetic Kindle-path Electron e2e. Gaps: real-tool tests skipped/deselected; photo-path e2e never run. |
+| Feature Completeness | A- | 22 of 22 features `pass` (16 plan tasks plus 6 polish rows). Ollama live-validated on `qwen2.5vl:7b`; Tesseract 5.5.1 and the photo-path e2e were already recorded before this pass. Ollama residuals and the Found-while-polishing list remain. |
+| Test Coverage | B+ | 548 backend tests (2 deselected live; real git against a bare remote, concurrent pushes, crash recovery), 252 vitest, 231 integration, Playwright 3 (Kindle smoke, back-out e2e, photo path). Re-run in this orchestration pass after the bookkeeping edits. Ollama live tests stay deselected by default. |
 | Documentation | B | README, ARCHITECTURE, PRODUCT, RELIABILITY and the spec are current; `docs/deferred-findings.md` lists what is open. No user-facing screenshots/walkthrough. |
-| Architecture Adherence | A- | `architecture-review.sh` passes (no file over 500 LOC; imports ≤ 15) with one documented exemption (composition roots `api/app.py`, `api/deps.py`). |
-| Structured Logging | C | Plain-text stdlib logging to stderr (forwarded to the `npm run dev` terminal), with credential/token redaction; ids in log lines but not structured JSON. DoD item 5 asks for structured logging at boundaries. |
-| Performance | C | Unmeasured. Targets in RELIABILITY.md are unverified; the image endpoint re-encodes the full 12 MP photo per request. |
-| Harness Quality | B | Trackers, handoff and deferred-findings current as of session 2; `clean-state-checklist.md` was exercised through the gate scripts, not walked item by item. |
+| Architecture Adherence | A- | Static stage clean this orchestration pass (no file over 500 lines, no file over 15 imports). The LLM stage was not verified: Claude CLI OAuth expired (`Failed to authenticate`), `scripts/architecture-review.sh` exit 1 (`AUDIT_ERROR`). That exit is auth, not an architecture-rule violation, and it is not a pass. |
+| Structured Logging | C | Plain-text stdlib logging to stderr (forwarded to the `npm run dev` terminal), with credential/token redaction. `exc_info`, chained causes, and `stack_info` are masked. Ids in log lines but not structured JSON. DoD item 5 asks for structured logging at boundaries. |
+| Performance | C | Unmeasured. Targets in RELIABILITY.md are unverified. The image route does not re-encode a 12 MP photo on every request: the first view decodes it to a ≤2000 px cache; repeats are a file read or a 304. Lookup is still O(open batches). |
+| Harness Quality | B | Trackers, handoff and deferred-findings updated in the working tree through session 6 (not committed). `clean-state-checklist.md` was exercised through the gate scripts, not walked item by item. |
 
 ## Overall Grade: B
 
 **Grading scale**: A = production-ready, no known issues. B = functional, minor gaps. C = works but significant gaps. D = partially functional. F = broken.
 
-Held at B (not higher) because the OCR/vision paths are unverified on real photos and one known startup hang (recover() fetch timeout) is unfixed.
+Held at B (not higher) because performance is unmeasured, logging is still plain text, and Ollama residuals plus the Found-while-polishing list remain.
 
 ## Evidence of Quality
 
@@ -38,13 +38,14 @@ Not benchmarked. Operation timeouts are enforced instead: git 20 s local / 60 s 
 ## Verified Against
 
 - `clean-state-checklist.md`: build, architecture, data-integrity and script items verified via the gate scripts; runtime smoke test = e2e Kindle path.
-- `evaluator-rubric.md`: 4.0 / 5 overall.
-- `feature_list.json`: 16 of 16 at status "pass".
-- `scripts/test.sh`: PASS (423 backend + 145 frontend; 2 tests skipped without Tesseract).
-- `scripts/integration.sh`: PASS (188 backend integration tests).
-- `scripts/architecture-review.sh`: PASS.
-- `scripts/lint.sh`: clean (and honest since session 2: it previously reported clean while ruff found 17 errors).
-- `scripts/code-review.sh`: not run as a gate; independent per-task and whole-branch reviews were done instead.
+- `evaluator-rubric.md`: 4.1 / 5 overall.
+- `feature_list.json`: 22 of 22 at status "pass".
+- `scripts/test.sh`: exit 0 this orchestration pass, after the bookkeeping edits. pytest 548 passed, 2 deselected in 46.60s; vitest 252 passed in 2.41s.
+- `scripts/integration.sh`: exit 0 this orchestration pass. 231 passed in 25.97s.
+- `scripts/ui-test.sh`: exit 0 this orchestration pass. vitest 252, typecheck + electron-vite build succeeded, Playwright 3 passed in 16.3s (Kindle smoke, back-out e2e, photo path).
+- `scripts/architecture-review.sh`: exit 1 this orchestration pass. Not a pass. Static stage clean (no file over 500 lines, no file over 15 imports). LLM stage did not run: OAuth expired (`Failed to authenticate`), script recorded `AUDIT_ERROR`. The exit 1 is auth, not an architecture-rule violation. The hard gate is not claimed.
+- `scripts/lint.sh`: exit 0 this orchestration pass. ruff clean, frontend typecheck passed. Honest since session 2 (it once reported clean while ruff found 17 errors).
+- `scripts/code-review.sh`: exit 0, but the LLM stage did not run (placeholder in `.claude-review.md`, same expired OAuth). Not verified. Not a pass. A manual code review (M1, M2, m1-m9) stands in for it.
 
 ## Quality Trend
 
@@ -52,3 +53,4 @@ Not benchmarked. Operation timeouts are enforced instead: git 20 s local / 60 s 
 |---------|------|---------|------------------|-------|
 | 1 | 2026-11-08T16:09:58Z | n/a | 0 of 16 | Initial: design, plan, harness |
 | 2 | 2026-11-09 | B | 14 of 16 (+2 partial) | v1 built; final review found 1 Critical + 7 Important, fixed in one wave; 1 Important residual (recover() fetch timeout) |
+| 6 | 2026-11-22 | B | 22 of 22 | Deferred-findings polish on `polish/deferred-findings`. This orchestration pass re-ran the gates after the bookkeeping edits: test.sh 548 backend (2 deselected live) and 252 vitest, integration 231, ui-test Playwright 3, lint clean. `architecture-review.sh` exit 1 is expired OAuth (`AUDIT_ERROR`), not a finding and not a pass. `code-review.sh` wrote only a placeholder. |

@@ -6,10 +6,10 @@ from datetime import tzinfo
 from pathlib import Path
 from typing import NoReturn
 
-from note_taker.batch_store import BatchStore
+from note_taker.batch_store import BatchNotFound, BatchStore
 from note_taker.books import BookCatalog, BookNotFound
 from note_taker.events import EventBus
-from note_taker.git_publisher import GitError, GitPublisher
+from note_taker.git_publisher import GitError, GitPublisher, same_remote
 from note_taker.markdown_writer import append_highlights, existing_marker_ids
 from note_taker.models import (
     Batch,
@@ -35,7 +35,7 @@ _Group = tuple[Book, list[tuple[Capture, Highlight]]]
 
 class PushError(Exception):
     """code is one of: dirty_repo, not_cloned, nothing_to_push, unknown_book, git_failed,
-    wrong_branch, remote_mismatch."""
+    wrong_branch, remote_mismatch, bookkeeping_failed (pushed, but the batch could not be updated)."""
 
     def __init__(self, code: str, message: str = ""):
         super().__init__(message or code)
@@ -127,34 +127,89 @@ class PushService:
                 self._progress(batch_id, "failed", code=code)
                 raise
 
-            written_as = {c.id: _section_key(c, batch) for c in approved}
+            return self._finish_batch(batch, approved, sha, files, written)
 
-            def finish(b: Batch) -> None:
-                # Inside the store lock, so comparison and status write are atomic. A capture
-                # the user edited, discarded or removed since we read it is not what we wrote:
-                # it stays as it is on disk, and a later push appends any new highlight ids
-                # (markers keep the already-written ones from being duplicated).
-                for c in b.captures:
-                    if (
-                        c.status == CaptureStatus.approved
-                        and written_as.get(c.id) == _section_key(c, b)
-                    ):
-                        c.status = CaptureStatus.pushed
-                b.status = BatchStatus.open
+    def _finish_batch(
+        self, batch: Batch, approved: list[Capture], sha: str, files: list[str], written: int
+    ) -> PushResult:
+        """Bookkeeping after the remote has the commit: nothing here may undo the push.
 
+        The highlights are already published, so failures are reported (or only logged)
+        but never rolled back. Retrying is safe: markers make the rewrite a no-op and
+        pushing an up-to-date HEAD does nothing.
+        """
+        batch_id = batch.id
+        written_as = {c.id: _section_key(c, batch) for c in approved}
+
+        def finish(b: Batch) -> None:
+            # Inside the store lock, so comparison and status write are atomic. A capture
+            # the user edited, discarded or removed since we read it is not what we wrote:
+            # it stays as it is on disk, and a later push appends any new highlight ids
+            # (markers keep the already-written ones from being duplicated).
+            for c in b.captures:
+                if (
+                    c.status == CaptureStatus.approved
+                    and written_as.get(c.id) == _section_key(c, b)
+                ):
+                    c.status = CaptureStatus.pushed
+            b.status = BatchStatus.open
+
+        gone = False
+        try:
             self._store.modify(batch_id, finish, touch=True)
+        except BatchNotFound:
+            # Discarded while we pushed: nothing is left to mark, which is the same end
+            # state a successful finish-and-delete reaches.
+            gone = True
+        except Exception as exc:  # noqa: BLE001  # any failure here has the same remedy: push again
+            self._bookkeeping_failed(batch_id, sha, exc)
+        deleted = self._tidy_after_push(batch_id) or gone
+        self._progress(batch_id, "done")
+        log.info(
+            "push done batch=%s commit=%s highlights=%d files=%d deleted=%s",
+            batch_id, sha, written, len(files), deleted,
+        )
+        return PushResult(
+            commit_sha=sha, files_changed=files, highlights_written=written,
+            batch_deleted=deleted,
+        )
+
+    def _bookkeeping_failed(self, batch_id: str, sha: str, exc: Exception) -> NoReturn:
+        log.error(
+            "pushed but bookkeeping failed batch=%s commit=%s", batch_id, sha, exc_info=exc
+        )
+        try:
+            self._store.modify(batch_id, _set_status(BatchStatus.open), touch=False)
+        except BatchNotFound:
+            pass  # the batch is gone, so there is nothing left to unstick
+        except Exception:  # recover() reopens a `pushing` batch at next start
+            log.warning(
+                "could not reopen batch=%s after bookkeeping failure; recover() will", batch_id,
+                exc_info=True,
+            )
+        self._progress(batch_id, "failed", code="bookkeeping_failed")
+        raise PushError(
+            "bookkeeping_failed",
+            f"Your highlights were pushed (commit {sha[:7]}) but the app could not update "
+            "this batch. Push again to finish; nothing will be duplicated.",
+        ) from exc
+
+    def _tidy_after_push(self, batch_id: str) -> bool:
+        """Housekeeping that is nice to have; returns whether the batch was deleted.
+
+        Failures are logged, not raised: the push succeeded, and a leftover pending
+        book or finished batch is cleaned up by the next push or the janitor.
+        """
+        try:
             self._books.prune_pending()
+        except Exception:
+            log.warning("could not prune pending books after push batch=%s", batch_id, exc_info=True)
+        try:
             # Re-checked under the store lock: an upload may land after finish().
-            deleted = self._store.delete_if(batch_id, lambda b: b.is_finished())
-            self._progress(batch_id, "done")
-            log.info(
-                "push done batch=%s commit=%s highlights=%d files=%d deleted=%s",
-                batch_id, sha, written, len(files), deleted,
-            )
-            return PushResult(
-                commit_sha=sha, files_changed=files, highlights_written=written,
-                batch_deleted=deleted,
-            )
+            return self._store.delete_if(batch_id, lambda b: b.is_finished())
+        except Exception:
+            log.warning("could not delete finished batch=%s after push", batch_id, exc_info=True)
+            return False
 
     def recover(self) -> None:
         with _PUSH_LOCK:
@@ -213,6 +268,25 @@ class PushService:
         if (problem := self._clone_mismatch(git)) is not None:
             raise problem
 
+    def clone_problem(self) -> PushError | None:
+        """Why a push from the existing clone would be refused for branch/remote reasons.
+
+        None when the clone is missing (that is "not connected", reported elsewhere) or
+        fine. The message is already credential-masked and names actual and expected.
+        Shown on /health so the user sees it before a push fails; sync() keeps logging
+        the same condition at info level because it is routine there, not a warning.
+
+        None while a push or sync holds the clone too: mid pull --rebase HEAD is briefly
+        detached, and /health polling must not flash a false wrong_branch at the user.
+        """
+        if not _PUSH_LOCK.acquire(blocking=False):
+            return None
+        try:
+            git = self._git_factory()
+            return self._clone_mismatch(git) if git.is_cloned() else None
+        finally:
+            _PUSH_LOCK.release()
+
     def _clone_mismatch(self, git: GitPublisher) -> PushError | None:
         # Pushing does `HEAD:refs/heads/<branch>`, so from any other branch it would
         # publish that branch's commits to the configured one; and an `origin` other
@@ -232,7 +306,7 @@ class PushService:
                     "or change the branch in Settings"
                 ),
             )
-        if repo.remote_url and origin != repo.remote_url:
+        if repo.remote_url and not same_remote(origin or "", repo.remote_url):
             return PushError(
                 "remote_mismatch",
                 mask_credentials(

@@ -14,7 +14,7 @@
       "name": "JSON-per-batch store with photo dedupe",
       "plan_task": 2,
       "status": "pass",
-      "evidence": "Commits 33635ce, 16d8f5c. tests/test_batch_store.py (13 at the time). Review found unvalidated batch_id (rmtree of data dir via delete('..')) → ULID validation added; later BatchStore.modify/delete_if/list_readable added by T6/T10."
+      "evidence": "Commits 33635ce, 16d8f5c. tests/test_batch_store.py (13 at the time). Review found unvalidated batch_id (rmtree of data dir via delete('..')) → ULID validation added; later BatchStore.modify/delete_if/list_readable added by T6/T10. list_readable no longer exists: BatchStore.list() skips a corrupt batch.json (bb9cb55, 7e9f1e5; test_list_skips_corrupt_batch_json)."
     },
     {
       "id": "markdown-writer",
@@ -42,14 +42,14 @@
       "name": "Idempotent push service with crash recovery",
       "plan_task": 6,
       "status": "pass",
-      "evidence": "Commits 22b21c1, e765e85; final wave 1c496aa, 333a49e, f27f2ce. tests/test_push_service.py, test_push_recovery.py (real git, concurrent pushes, crash recovery, idempotent markers). Mid-push edit snapshot compare; atomic delete_if; branch/remote guard."
+      "evidence": "Commits 22b21c1, e765e85; final wave 1c496aa, 333a49e, f27f2ce. tests/test_push_service.py, test_push_recovery.py (real git, concurrent pushes, crash recovery, idempotent markers). Mid-push edit snapshot compare; atomic delete_if; branch/remote guard. The recover-fetch residual is already fixed on main (session 5). same_remote and bookkeeping reopen (2625988, 7e9f1e5)."
     },
     {
       "id": "extraction-queue",
       "name": "Imaging helpers, extractor interface, extraction queue",
       "plan_task": 7,
       "status": "pass",
-      "evidence": "Commits af6233d, d8cd761. tests/test_extraction_*.py, test_imaging.py (rotation, EXIF, outcome gating, per-run claim tokens). The Tesseract-OSD rotation test is SKIPPED here (tesseract not installed)."
+      "evidence": "Commits af6233d, d8cd761. tests/test_extraction_*.py, test_imaging.py (rotation, EXIF, outcome gating, per-run claim tokens). OSD timeout tests live in test_imaging.py (test_detect_rotation_bounds_osd_with_a_timeout)."
     },
     {
       "id": "ollama-extractor",
@@ -113,6 +113,48 @@
       "plan_task": 16,
       "status": "pass",
       "evidence": "Commits c158e40, 457c446, c3dfcab, 3cc9fbd; photo-path verified 2026-11-22. frontend/e2e/smoke.spec.ts: Kindle path + photo path both pass under scripts/ui-test.sh (vitest 145, build, Playwright 2/2 in ~14.6s) with tesseract 5.5.1 on PATH. Photo path uses synthetic yellow-highlight PNGs and extractor kind=tesseract. README.md written; hermetic sandbox env (GIT_*/SSH_* stripped)."
+    },
+    {
+      "id": "polish-storage",
+      "name": "Settings quarantine and a tolerant batch list",
+      "plan_task": null,
+      "status": "pass",
+      "evidence": "Commits bb9cb55, 7e9f1e5. Settings quarantine and tolerant list. test_corrupt_settings_load_defaults_and_are_quarantined, test_get_batches_survives_one_corrupt_batch, test_recover_survives_a_corrupt_batch, test_start_survives_a_corrupt_batch."
+    },
+    {
+      "id": "polish-markdown-and-patch-ids",
+      "name": "Marker-safe notes, headings, empty book files, and fresh patch ids",
+      "plan_task": null,
+      "status": "pass",
+      "evidence": "Commits a185d27, 7e9f1e5. Marker, heading, and empty-file cases, plus fresh ids for repeated highlights in a PATCH. test_note_continuation_cannot_forge_a_marker, test_note_cr_and_unicode_separators_cannot_forge_a_marker, test_forged_marker_in_note_does_not_suppress_the_real_highlight, test_chapter_newline_stays_on_one_heading_line, test_title_newline_is_one_h1_line, test_zero_byte_book_file_gets_frontmatter, test_patch_duplicate_ids_mint_fresh_ids_for_repeats."
+    },
+    {
+      "id": "polish-push-origin-bookkeeping",
+      "name": "Origin equivalence and bookkeeping reopen after a good push",
+      "plan_task": null,
+      "status": "pass",
+      "evidence": "Commits 2625988, 7e9f1e5. same_remote and _bookkeeping_failed. test_same_remote_treats_url_equivalents_as_equal, test_push_accepts_origin_that_differs_only_by_git_suffix_or_slash, test_bookkeeping_failure_reopens_the_batch_and_raises, test_bookkeeping_failure_is_logged_with_traceback."
+    },
+    {
+      "id": "polish-extraction-edges",
+      "name": "OSD timeout, quiet health tick, margin note, and captured_at",
+      "plan_task": null,
+      "status": "pass",
+      "evidence": "Commit 560de31. OSD timeout, quiet health tick, margin note kept with no highlights, captured_at fallback. test_detect_rotation_bounds_osd_with_a_timeout, test_unhealthy_tick_does_not_rewrite_batch_or_republish_same_error, test_queue_keeps_margin_note_when_there_are_no_highlights, test_captured_at_falls_back_on_any_exif_parser_failure."
+    },
+    {
+      "id": "polish-health-previews-backout",
+      "name": "Repo problem, downscaled previews, empty delete, and the expiring pill",
+      "plan_task": null,
+      "status": "pass",
+      "evidence": "Commits ad9195c, 01c9b12, 749f5ea, 7e9f1e5. repo.problem, downscaled image, only_if_empty, expiring pill. test_health_reports_wrong_branch_problem, test_preview_is_downscaled_to_max_edge, test_delete_only_if_empty_removes_an_empty_batch, BatchList marks only the expiring row, e2e backing out of an empty batch or a blank Kindle capture leaves nothing behind."
+    },
+    {
+      "id": "polish-review-ui",
+      "name": "Review UI: live state, discard, numbering, page, save errors, settings focus",
+      "plan_task": null,
+      "status": "pass",
+      "evidence": "Commits dd92c00, 01c9b12. SSE onState, Discard reload, numbering, page message, 409/422 copy, Cmd+Enter guard, Settings 422 focus, silenced stderr. Client reports live / reconnecting / closed through onState; BatchList a failed delete reloads the list and keeps the error visible; BatchGrid numbers thumbnails among reviewable-set captures, skipping hidden pushed ones; ReviewEditor flags \"12a\" at once, keeps the text, and never sends it; 409 batch_pushing: paused text only, no alert, no button, no retry timer; ReviewEditorSafety ignores isComposing without touching the event; Settings flags each mapped field, focuses the first in form order, and counts them in the alert; frontend/tests/backend.test.ts silences process.stderr.write in the ring-buffer test."
     }
   ]
 }

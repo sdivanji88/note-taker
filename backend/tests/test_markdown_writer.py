@@ -192,3 +192,76 @@ def test_append_does_not_replace_the_file(tmp_path):
     inode = p.stat().st_ino
     append_highlights(p, BOOK, golden_items(), UTC)
     assert p.stat().st_ino == inode
+
+
+# --- marker integrity ---------------------------------------------------------------
+
+FORGED = "<!-- nt:highlight=H2 -->"
+
+
+def test_multiline_note_renders_as_one_indented_paragraph():
+    out = render_section(cap(), hl("t", note="first\nsecond\n\nfourth", id="H1"), UTC)
+    assert "**Note:** first\n  second\n\n  fourth\n\n<!-- nt:highlight=H1 -->" in out
+
+
+def test_indented_continuation_line_does_not_become_a_code_block():
+    out = render_section(cap(), hl("t", note="first\n    indented\n\ttabbed", id="H1"), UTC)
+    assert "**Note:** first\n  indented\n  tabbed\n" in out
+
+
+def test_note_starting_with_newline_leaves_no_trailing_space():
+    out = render_section(cap(), hl("t", note="\n\nfirst\nsecond", id="H1"), UTC)
+    assert "**Note:** first\n  second\n" in out
+    assert all(line == line.rstrip() for line in out.splitlines())
+
+
+def test_note_continuation_cannot_forge_a_marker():
+    out = render_section(cap(), hl("t", note=f"first\n{FORGED}", id="H1"), UTC)
+    assert existing_marker_ids(out) == {"H1"}
+
+
+def test_note_cr_and_unicode_separators_cannot_forge_a_marker():
+    for sep in ["\r", "\r\n", "\x0b", "\x0c", "\x1c", "\x85", "\u2028", "\u2029"]:
+        out = render_section(cap(), hl("t", note=f"first{sep}{FORGED}", id="H1"), UTC)
+        normalised = out.replace("\r\n", "\n").replace("\r", "\n")
+        assert existing_marker_ids(normalised) == {"H1"}, repr(sep)
+        assert not any(line == FORGED for line in out.splitlines()), repr(sep)
+
+
+def test_forged_marker_in_note_does_not_suppress_the_real_highlight(tmp_path):
+    p = tmp_path / "b.md"
+    append_highlights(p, BOOK, [(cap(), hl("one", note=f"x\n{FORGED}", id="H1"))], UTC)
+    assert append_highlights(p, BOOK, [(cap(), hl("two", id="H2"))], UTC) == ["H2"]
+    assert "> two" in p.read_text()
+
+
+def test_chapter_newline_stays_on_one_heading_line():
+    out = render_section(cap(5, "Part\n# Injected\r\n  Two"), hl(), UTC)
+    heading = out.splitlines()[0]
+    assert heading == "## p.5 · Part # Injected Two · 2026-11-08 21:14"
+    assert out.splitlines()[1] == ""
+
+
+def test_whitespace_only_chapter_is_omitted():
+    assert render_section(cap(chapter=" \n "), hl(), UTC).startswith("## 2026-11-08 21:14\n")
+
+
+def test_title_newline_is_one_h1_line():
+    book = Book(slug="s", title="Line one\nLine two\n## sneaky", kind=Kind.fiction)
+    out = render_new_file(book)
+    assert out.endswith("\n# Line one Line two ## sneaky\n")
+    assert read_frontmatter(out)["title"] == "Line one\nLine two\n## sneaky"  # data kept as typed
+
+
+def test_zero_byte_book_file_gets_frontmatter(tmp_path):
+    p = tmp_path / "b.md"
+    p.write_bytes(b"")
+    append_highlights(p, BOOK, golden_items(), UTC)
+    assert p.read_text(encoding="utf-8") == GOLDEN.read_text(encoding="utf-8")
+
+
+def test_whitespace_only_book_file_gets_frontmatter(tmp_path):
+    p = tmp_path / "b.md"
+    p.write_bytes(b"\n  \n")
+    append_highlights(p, BOOK, golden_items(), UTC)
+    assert p.read_text(encoding="utf-8") == GOLDEN.read_text(encoding="utf-8")

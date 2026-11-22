@@ -123,7 +123,9 @@ describe('a push in progress', () => {
     type('Chapter', 'held edit')
     await settle(600)
     await settle(250)
-    expect(screen.getByRole('alert')).toHaveTextContent('A push is running for this batch; try again when it finishes.')
+    // The pause is explained once, in the status line; an alert on top would only repeat it.
+    expect(screen.getByRole('status')).toHaveTextContent('Paused — a push is running; your edits will save when it finishes.')
+    expect(screen.queryByRole('alert')).toBeNull()
     expect(screen.getByLabelText('Chapter')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
 
@@ -135,5 +137,64 @@ describe('a push in progress', () => {
     expect(s.patchCapture).toHaveBeenCalledTimes(2)
     expect(s.patchCapture).toHaveBeenLastCalledWith('c1', { chapter: 'held edit' })
     expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled()
+  })
+})
+
+describe('Cmd+Enter guard', () => {
+  const approvals = (s: ReturnType<typeof setup>) =>
+    s.patchCapture.mock.calls.filter(([, b]) => 'status' in b)
+  // fireEvent returns false when the event's default was prevented.
+  const press = (init: KeyboardEventInit = {}) =>
+    fireEvent.keyDown(document.body, { key: 'Enter', metaKey: true, ...init })
+
+  it('control: a plain Cmd+Enter approves exactly once and claims the key', async () => {
+    const s = setup([ready()])
+    s.start()
+    await settle()
+    expect(press()).toBe(false)
+    press() // a second press while the first is still in flight must not double-send
+    await settle()
+    expect(approvals(s)).toHaveLength(1)
+  })
+
+  it.each([
+    ['isComposing', { isComposing: true }],
+    ['keyCode 229 (IME confirm)', { keyCode: 229 }],
+    ['auto-repeat', { repeat: true }]
+  ])('ignores %s without touching the event', async (_n, init) => {
+    const s = setup([ready()])
+    s.start()
+    await settle()
+    expect(press(init)).toBe(true)
+    await settle()
+    expect(approvals(s)).toHaveLength(0)
+  })
+
+  it('does nothing for a capture that is still extracting', async () => {
+    const s = setup([capture('e1', 'extracting')])
+    s.start()
+    await settle()
+    expect(press()).toBe(true)
+    await settle()
+    expect(s.patchCapture).not.toHaveBeenCalled()
+  })
+
+  it('does nothing while the batch is being pushed', async () => {
+    const s = setup([ready()], {}, { status: 'pushing' })
+    s.start()
+    await settle()
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled()
+    expect(press()).toBe(true)
+    await settle()
+    expect(s.patchCapture).not.toHaveBeenCalled()
+  })
+
+  it('on an already-approved capture it still saves and moves on', async () => {
+    const s = setup([approved('c1'), ready('c2', { chapter: 'two' })])
+    s.start()
+    await settle()
+    expect(press()).toBe(false)
+    await settle()
+    expect(screen.getByLabelText('Chapter')).toHaveValue('two')
   })
 })

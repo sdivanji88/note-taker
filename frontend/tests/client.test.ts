@@ -90,6 +90,35 @@ describe('createClient', () => {
     expect(http.message).not.toContain(cfg.token)
   })
 
+  it('exposes the 422 body\'s field paths on ApiError.fields, [] when absent or malformed', async () => {
+    fetchMock.mockResolvedValue(
+      reply(422, { error: { code: 'invalid_settings', message: 'bad', fields: ['notes_repo.branch', 'extractor.timeout_s'] } })
+    )
+    const withFields = await createClient(cfg).putSettings({} as never).catch((e) => e)
+    expect(withFields.fields).toEqual(['notes_repo.branch', 'extractor.timeout_s'])
+
+    fetchMock.mockResolvedValue(reply(409, { error: { code: 'dirty_repo', message: 'x' } }))
+    expect((await createClient(cfg).push('b1').catch((e) => e)).fields).toEqual([])
+
+    fetchMock.mockResolvedValue(reply(422, { error: { code: 'invalid_request', message: 'x', fields: 'page' } }))
+    expect((await createClient(cfg).push('b1').catch((e) => e)).fields).toEqual([])
+
+    fetchMock.mockRejectedValue(new TypeError('down'))
+    expect((await createClient(cfg).push('b1').catch((e) => e)).fields).toEqual([])
+  })
+
+  it('deleteBatch with onlyIfEmpty adds the query flag; without it the path is bare', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    await createClient(cfg).deleteBatch('b1')
+    await createClient(cfg).deleteBatch('b1', { onlyIfEmpty: true })
+    await createClient(cfg).deleteBatch('b1', { onlyIfEmpty: false })
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      'http://127.0.0.1:9999/batches/b1',
+      'http://127.0.0.1:9999/batches/b1?only_if_empty=true',
+      'http://127.0.0.1:9999/batches/b1'
+    ])
+  })
+
   it('sends JSON bodies and resolves 204 to undefined', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
     await expect(createClient(cfg).deleteBatch('b1')).resolves.toBeUndefined()
@@ -115,6 +144,11 @@ describe('subscribe', () => {
     static last: FakeEventSource
     listeners = new Map<string, (e: MessageEvent) => void>()
     closed = false
+    // EventSource.CLOSED is 2; the real constant is not available under jsdom-less stubs.
+    static CLOSED = 2
+    readyState = 0
+    onopen: (() => void) | null = null
+    onerror: (() => void) | null = null
     constructor(public url: string) {
       FakeEventSource.last = this
     }
@@ -141,5 +175,43 @@ describe('subscribe', () => {
 
     stop()
     expect(es.closed).toBe(true)
+  })
+
+  it('reports live / reconnecting / closed through onState', () => {
+    const states: string[] = []
+    createClient(cfg).subscribe('b1', vi.fn(), (st) => states.push(st))
+    const es = FakeEventSource.last
+    es.onopen?.()
+    es.readyState = 0 // browser is retrying
+    es.onerror?.()
+    es.onopen?.()
+    es.readyState = FakeEventSource.CLOSED // browser gave up
+    es.onerror?.()
+    expect(states).toEqual(['live', 'reconnecting', 'live', 'closed'])
+  })
+
+  it('works without an onState callback', () => {
+    createClient(cfg).subscribe('b1', vi.fn())
+    const es = FakeEventSource.last
+    expect(() => {
+      es.onopen?.()
+      es.onerror?.()
+    }).not.toThrow()
+  })
+
+  it('drops a malformed frame without throwing, logging its payload, or losing later frames', () => {
+    const onEvent = vi.fn()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    createClient(cfg).subscribe('b1', onEvent)
+    const handler = FakeEventSource.last.listeners.get('capture.extracted')!
+    expect(() => handler({ data: '{not json: secret-payload' } as MessageEvent)).not.toThrow()
+    expect(onEvent).not.toHaveBeenCalled()
+    expect(warn.mock.calls.flat().join(' ')).toContain('capture.extracted')
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('secret-payload')
+
+    const data = { capture_id: 'c1' }
+    handler({ data: JSON.stringify(data) } as MessageEvent)
+    expect(onEvent).toHaveBeenCalledWith({ type: 'capture.extracted', data })
+    warn.mockRestore()
   })
 })

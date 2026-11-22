@@ -2,37 +2,39 @@
 
 > Read this at the start of every session. Update it before ending every session.
 
-**Last updated:** 2026-11-22 (PR #3 merged to main — v1 open gaps closed)
+**Last updated:** 2026-11-22 (architecture LLM gate via headless Cursor `agent`; PR #4 open)
 
 ---
 
 ## What was accomplished
 
-- **Session 5:** Fixed `PushService.recover()` to pass `timeout_s=_SYNC_TIMEOUT_S` (hanging-fetch test). Hard gates green on `fix/recover-fetch-timeout`: `test.sh` (433 + 145), `integration.sh` (188), `architecture-review.sh` (exclude `.worktrees`), `lint.sh`. Soft: `code-review.sh` runs (claude CLI placeholder). Smoke: backend on `127.0.0.1:8765` — `/health` 401 without token, 200 with token; `/ping` ok.
-- Prior: Ollama live validation + Tesseract/photo-path e2e on main via PR #2; 16/16 features pass.
+- **Session 6 (polish):** Closed deferred "Should fix soon" items on `polish/deferred-findings` (PR #4). See earlier handoff / `claude-progress.md` for the ten implementation commits.
+- **This pass:** Rewrote `scripts/architecture-review.sh` and `scripts/code-review.sh` to prefer Cursor Agent headless (`agent` / `cursor-agent -p --mode ask`) over `claude`. Branch-vs-`main` merge-base diff for architecture Stage 2. Ran architecture review: **PASS** (LLM=`agent`, ~275KB diff, ~107s). Backend import smoke OK.
+
+## Validation gates (be honest about these)
+
+| Gate | Result |
+|------|--------|
+| `scripts/test.sh` | Prior polish pass: exit 0 (pytest 548, vitest 252). |
+| `scripts/integration.sh` | Prior polish pass: exit 0 (231 passed). |
+| `scripts/ui-test.sh` | Prior polish pass: exit 0 (Playwright 3). |
+| `scripts/lint.sh` | Prior polish pass: exit 0. |
+| `scripts/architecture-review.sh` | **PASS** (2026-11-22). Stage 1 clean; Stage 2 via `agent` — no high-confidence rule 1–7 violations. Report: `.architecture-review.md`. |
+| `scripts/code-review.sh` | Soft; scripts now support `agent`. Optional re-run after pushing script commit. Manual review (M1, M2, m1-m9) already applied. |
 
 ## What remains
 
-1. Optional polish from `docs/deferred-findings.md` (“Should fix soon”: origin URL normalize, settings quarantine, UI, etc.).
-2. Optional HSV tuning on real GPS fixture photos.
-3. Packaging still out of scope (dev-mode only).
+1. Merge PR #4 (`polish/deferred-findings`) after CI / human review.
+2. Optional: re-run soft `bash scripts/code-review.sh` with `agent` and skim `.claude-review.md`.
+3. Open items in `docs/deferred-findings.md` under "Found while polishing" (corrupt batch visibility, silent settings reset, finished+failed delete_if, crash leftovers, image-route O(n), bookkeeping retry counts, lazy previews).
+4. Ollama residuals / Known limitations unchanged; packaging out of scope.
 
 ## Blockers / decisions made
 
-- Architecture review was failing because `find` scanned `.worktrees/`; excluded `.worktrees` and `.superpowers` from the static scan.
-- `code-review.sh` heredoc broke on `what's` — changed to `what is wrong` so the soft gate can write a report.
-
-## Files modified
-
-- `backend/src/note_taker/push_service.py`, `backend/tests/test_git_hardening.py`
-- `scripts/architecture-review.sh`, `scripts/code-review.sh`
-- `docs/deferred-findings.md`, this file, `claude-progress.md`
-
-## Benchmark results (if applicable)
-
-- Unit: 433 passed (~38s); frontend vitest 145; integration 188 (~23s).
-- Smoke: backend startup to `/ping` ~2s.
+- **Resolved:** No Claude CLI required for architecture Stage 2 — use Cursor `agent` on PATH.
+- Prefer `agent` → `cursor-agent` → `claude`; ambiguous LLM output fails the hard gate (must start with PASS/FAIL).
 
 ## Next session — start here
 
-`main` includes PR #2 (Ollama/Tesseract/e2e) and PR #3 (`recover()` timeout + gate hygiene). v1 product gates are clear. Next is optional polish from `docs/deferred-findings.md`, or stop.
+1. Review/merge PR #4: https://github.com/sdivanji88/note-taker/pull/4
+2. Decide which "Found while polishing" items (if any) to take next.

@@ -28,6 +28,8 @@ button.link { border: 0; background: none; color: #0a58ca; text-decoration: unde
 .thumb-open img { width: 100%; height: 100%; object-fit: cover; }
 .thumb .kindle { display: block; padding: 8px; font-size: 12px; text-align: left; overflow: hidden; }
 .badge { position: absolute; right: 6px; bottom: 6px; padding: 2px 8px; border-radius: 10px; background: #fff; border: 1px solid #c7c7cc; font-weight: 600; }
+.pill { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+.pill.warn { background: #fff4d6; color: #7a4b00; }
 .badge-failed { color: #b3261e; }
 .badge-approved, .badge-ready { color: #1e7a34; }
 .spin { display: inline-block; animation: spin 1s linear infinite; }

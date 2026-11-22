@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -8,6 +9,38 @@ LOCAL_TIMEOUT_S = 20.0
 
 # The session token must not leak to git, its hooks or credential helpers.
 _SECRET_ENV = ("NOTE_TAKER_TOKEN",)
+
+
+# http(s) credentials only: they are secrets that may be set on one URL and not the other.
+# Deliberately not redact._USERINFO, which would also strip the user of an ssh URL.
+_HTTP_USERINFO = re.compile(r"^(https?://)[^/@\s]+@")
+
+
+# Forms whose trailing "/" and ".git" are conventions of a hosting service, not part of a
+# filesystem name: http(s)://, ssh://, and scp-style `[user@]host:path`.
+_HOSTED_URL = re.compile(r"^(?:(?:https?|ssh)://|(?:[^@/:\s]+@)?[^@/:\s]+:(?!//))")
+
+
+def same_remote(a: str, b: str) -> bool:
+    """True if two remote URLs name the same repo, ignoring cosmetic differences.
+
+    Ignored: surrounding whitespace, http(s) userinfo (a token in one URL only), and,
+    for hosted URLs only, trailing "/" and one ".git" (GitHub serves the same repo with
+    or without them). Filesystem paths and file:// URLs are compared exactly:
+    `/srv/r.git` and `/srv/r` are different directories, and a false "same" would push
+    to a repo the user did not pick, while a false "different" only refuses a push.
+    Also deliberately NOT normalised: scp-style vs ssh:// forms, host/path case, and the
+    ssh user (a real identity — `deploy@host` and `git@host` can be different accounts).
+    """
+    return _canonical_remote(a) == _canonical_remote(b)
+
+
+def _canonical_remote(url: str) -> str:
+    url = _HTTP_USERINFO.sub(r"\1", url.strip())
+    if not _HOSTED_URL.match(url):
+        return url
+    # One ".git", not a loop: `x.git.git` is a repo really named `x.git`.
+    return url.rstrip("/").removesuffix(".git")
 
 
 class GitError(Exception):

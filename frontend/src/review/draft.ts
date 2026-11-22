@@ -80,6 +80,14 @@ export function dirtyFields(draft: Draft, base: Draft): FieldName[] {
   return out
 }
 
+// True when the user has put nothing of their own into the capture. Used to tell an
+// "Add Kindle highlight" entry they abandoned from one worth keeping; the book is ignored
+// because it is usually pre-filled from the batch default.
+export const isUnfilled = (d: Draft) =>
+  d.page.trim() === '' &&
+  d.chapter.trim() === '' &&
+  d.highlights.every((h) => h.text.trim() === '' && h.note.trim() === '')
+
 export const pageIsValid = (draft: Draft) => parsePage(draft.page).ok
 
 // Only changed fields go out, except highlights which is always the whole list (the
@@ -119,6 +127,18 @@ export function reviewErrorMessage(e: unknown): string {
     if (e.status === 404) return 'This capture no longer exists.'
   }
   return errorMessage(e)
+}
+
+// The alert text for a failed autosave. The prefix says what the user can expect: a
+// conflict or rejection will fail again unchanged, so it must not read like a blip.
+export function saveErrorMessage(e: unknown): string {
+  const detail = reviewErrorMessage(e)
+  if (e instanceof ApiError && !isTransient(e)) {
+    if (e.status === 409) return `Couldn't save — conflict: ${detail}`
+    if (e.status === 422) return `Couldn't save — not accepted: ${detail}`
+    if (e.status !== 404) return `Couldn't save: ${detail}`
+  }
+  return detail
 }
 
 export const isGone = (e: unknown) => e instanceof ApiError && e.status === 404

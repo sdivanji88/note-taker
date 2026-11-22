@@ -14,6 +14,9 @@ _DATETIME_ORIGINAL = 36867
 # is cheaper for the user to fix than a confidently wrong turn.
 _MIN_OSD_CONFIDENCE = 2.0
 _OSD_MAX_EDGE = 1600
+# detect_rotation runs on the queue's worker thread, outside the extractor executor and
+# its timeout, so nothing else bounds a Tesseract process that hangs on a pathological photo.
+_OSD_TIMEOUT_S = 30
 
 # Clockwise quarter turns as lossless transposes (PIL's ROTATE_* are counter-clockwise).
 _CLOCKWISE = {
@@ -41,7 +44,9 @@ def detect_rotation(path: Path) -> int:
     try:
         img = load_upright(path).convert("L")
         img.thumbnail((_OSD_MAX_EDGE, _OSD_MAX_EDGE))
-        osd = pytesseract.image_to_osd(img, output_type=pytesseract.Output.DICT)
+        osd = pytesseract.image_to_osd(
+            img, output_type=pytesseract.Output.DICT, timeout=_OSD_TIMEOUT_S
+        )
         rotate = int(osd["rotate"]) % 360
         confidence = float(osd["orientation_conf"])
     except Exception as exc:  # noqa: BLE001 - any failure degrades to "no rotation"
@@ -62,8 +67,10 @@ def captured_at(path: Path, fallback: datetime) -> datetime:
         if raw:
             # EXIF carries no zone: it is the phone's local wall clock.
             return datetime.strptime(str(raw).strip("\x00 "), "%Y:%m:%d %H:%M:%S").astimezone()
-    except (OSError, ValueError, SyntaxError):
-        pass
+    except Exception as exc:  # noqa: BLE001
+        # Pillow's EXIF parsers raise struct.error/TypeError/AttributeError/KeyError (not
+        # just OSError/ValueError) on malformed data; bad EXIF must never fail an upload.
+        log.debug("unreadable EXIF in %s: %s", path.name, exc)
     try:
         return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
     except OSError:

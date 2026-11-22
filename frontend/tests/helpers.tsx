@@ -2,7 +2,7 @@ import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { vi } from 'vitest'
 import { ApiContext } from '../src/api/context'
-import type { ApiClient } from '../src/api/client'
+import type { ApiClient, SubscriptionState } from '../src/api/client'
 import type { Batch, BatchEvent, BatchSummary, Book, Capture, CaptureStatus } from '../src/api/types'
 
 export function capture(id: string, status: CaptureStatus, extra: Partial<Capture> = {}): Capture {
@@ -66,12 +66,13 @@ export const book = (slug: string, title: string, pending = false): Book => ({
 // to whoever subscribed, `unsubscribe` records the cleanup.
 export function fakeClient(overrides: Record<string, unknown> = {}) {
   let listener: ((e: BatchEvent) => void) | null = null
+  let onState: ((s: SubscriptionState) => void) | null = null
   const unsubscribe = vi.fn()
   const client = {
     ping: vi.fn().mockResolvedValue({ ok: true }),
     getHealth: vi.fn().mockResolvedValue({
       extractor: { kind: 'tesseract', ok: true, detail: '' },
-      repo: { cloned: true, dirty: false, path: '/x' },
+      repo: { cloned: true, dirty: false, path: '/x', problem: null },
       remote: { ok: true, detail: '' }
     }),
     listBooks: vi.fn().mockResolvedValue([]),
@@ -89,15 +90,18 @@ export function fakeClient(overrides: Record<string, unknown> = {}) {
     getSettings: vi.fn().mockResolvedValue({ extractor: { kind: 'tesseract' } }),
     push: vi.fn(),
     imageUrl: vi.fn((id: string) => `http://127.0.0.1:1/captures/${id}/image?token=t`),
-    subscribe: vi.fn((_id: string, cb: (e: BatchEvent) => void) => {
+    subscribe: vi.fn((_id: string, cb: (e: BatchEvent) => void, state?: (s: SubscriptionState) => void) => {
       listener = cb
+      onState = state ?? null
       return unsubscribe
     }),
     ...overrides
   }
   const emit = () =>
     listener?.({ type: 'capture.status_changed', data: { capture_id: 'c1', status: 'ready', error: null } })
-  return { client: client as unknown as ApiClient & typeof client, emit, unsubscribe }
+  // Plays an EventSource connection-state change (open / error) to the subscriber.
+  const setConnection = (s: SubscriptionState) => onState?.(s)
+  return { client: client as unknown as ApiClient & typeof client, emit, unsubscribe, setConnection }
 }
 
 export function renderWith(client: ApiClient, ui: ReactElement) {

@@ -9,7 +9,7 @@ import {
   isPushing,
   isTransient,
   pageIsValid,
-  reviewErrorMessage,
+  saveErrorMessage,
   type Draft
 } from '../review/draft'
 
@@ -18,7 +18,9 @@ const AUTO_RETRY_MS = 3000
 
 export type SaveState =
   | { kind: 'idle' | 'unsaved' | 'saving' | 'saved' }
-  | { kind: 'error'; message: string; gone: boolean; pushing: boolean }
+  // `retrying`: a retry is already scheduled (the server never saw/finished the request).
+  // Otherwise the same request would fail the same way, and only the user can move on.
+  | { kind: 'error'; message: string; gone: boolean; pushing: boolean; retrying: boolean }
 
 // Owns one capture's editable copy and its autosave. Invariants that make edits safe:
 //  - at most one PATCH in flight; edits made meanwhile wait and go out as one PATCH;
@@ -75,8 +77,9 @@ export function useCaptureDraft(capture: Capture, onSaved: (c: Capture) => void)
         } catch (e) {
           inflight.current = null
           if (mounted.current) {
-            setSave({ kind: 'error', message: reviewErrorMessage(e), gone: isGone(e), pushing: isPushing(e) })
-            if (isTransient(e)) {
+            const retrying = isTransient(e)
+            setSave({ kind: 'error', message: saveErrorMessage(e), gone: isGone(e), pushing: isPushing(e), retrying })
+            if (retrying) {
               clearTimeout(retryTimer.current)
               retryTimer.current = setTimeout(() => void flushRef.current(), AUTO_RETRY_MS)
             }
@@ -151,5 +154,9 @@ export function useCaptureDraft(capture: Capture, onSaved: (c: Capture) => void)
     }
   }, [])
 
-  return { draft, edit, save, flush }
+  // Always the latest typed state, unlike `draft`, which a callback may have closed over
+  // before the last keystroke.
+  const current = useCallback(() => draftRef.current, [])
+
+  return { draft, edit, save, flush, current }
 }

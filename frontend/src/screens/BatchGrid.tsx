@@ -3,6 +3,8 @@ import { useApi } from '../api/context'
 import { ApiError, type Batch, type PushResult } from '../api/types'
 import BookSelect from '../components/BookSelect'
 import Thumb, { REVIEWABLE } from '../components/Thumb'
+import { navigable } from '../review/navigable'
+import { useBatchUpdates } from '../hooks/useBatchUpdates'
 import { errorMessage } from '../format'
 
 interface Props {
@@ -21,8 +23,10 @@ const REJECTION_TEXT: Record<string, string> = {
   too_large: 'larger than 25 MB',
   too_many_files: 'more than 100 files at once'
 }
-// Events can arrive in bursts (one per capture); one refetch per burst is enough.
-const REFETCH_DEBOUNCE_MS = 200
+const CONNECTION_TEXT = {
+  reconnecting: 'Live updates interrupted — reconnecting…',
+  closed: 'Live updates stopped. Use Refresh to update.'
+} as const
 
 // Cheap client-side filter only to avoid pointless uploads; the server stays the authority.
 function looksLikeImage(f: File): boolean {
@@ -74,24 +78,19 @@ export default function BatchGrid({ batchId, onOpenReview, onBack }: Props) {
     void refresh()
   }, [refresh])
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const unsubscribe = api.subscribe(batchId, () => {
-      clearTimeout(timer)
-      timer = setTimeout(() => void refresh(), REFETCH_DEBOUNCE_MS)
-    })
-    return () => {
-      clearTimeout(timer)
-      unsubscribe()
-    }
-  }, [api, batchId, refresh])
+  const connection = useBatchUpdates(batchId, refresh)
 
   const busy = working || pushing
   // A deleted batch (push succeeded) has nothing left to show or edit.
   const gone = pushResult?.batch_deleted === true
   const captures = batch?.captures ?? []
   const visible = captures.map((c, index) => ({ c, index })).filter(({ c }) => c.status !== 'pushed')
-  const firstReviewable = captures.findIndex((c) => REVIEWABLE.includes(c.status))
+  // Numbering and "N" use the same set the editor steps through; hidden pushed captures
+  // and unnumbered discarded ones must not leave gaps or inflate the count.
+  const steps = captures.map((c, index) => ({ c, index })).filter(({ c }) => navigable(c))
+  const positions = new Map(steps.map(({ c }, i) => [c.id, i + 1]))
+  const firstStep = steps.findIndex(({ c }) => REVIEWABLE.includes(c.status))
+  const firstReviewable = firstStep < 0 ? -1 : steps[firstStep].index
   const approved = captures.filter((c) => c.status === 'approved').length
 
   async function upload(all: File[]) {
@@ -175,6 +174,18 @@ export default function BatchGrid({ batchId, onOpenReview, onBack }: Props) {
     }
   }
 
+  // Backing out of a batch the user never put anything into would leave an "Empty" row in
+  // the list, so it is removed silently. The delete is awaited so the list's reload can't
+  // race it, and only fires from a settled, successfully loaded view: a stale or busy
+  // grid may not be empty any more. `onlyIfEmpty` makes the server the final judge, and
+  // a failed cleanup must never trap the user on this screen.
+  async function leave() {
+    if (batch && batch.captures.length === 0 && !busy && !loadError) {
+      await api.deleteBatch(batchId, { onlyIfEmpty: true }).catch(() => {})
+    }
+    onBack()
+  }
+
   function toggle(id: string) {
     setSelected((s) => {
       const next = new Set(s)
@@ -186,10 +197,13 @@ export default function BatchGrid({ batchId, onOpenReview, onBack }: Props) {
   return (
     <main className="screen">
       <header className="row between">
-        <button onClick={onBack}>← Batches</button>
+        <button onClick={() => void leave()}>← Batches</button>
         <h1>Batch</h1>
         <div className="row">
-          <span className="muted">Live updates may be stale</span>
+          {/* Always mounted: screen readers only announce changes to a region that already exists. */}
+          <span role="status" aria-live="polite" className="muted">
+            {connection === 'live' ? '' : CONNECTION_TEXT[connection]}
+          </span>
           <button onClick={() => void refresh()}>Refresh</button>
         </div>
       </header>
@@ -261,20 +275,32 @@ export default function BatchGrid({ batchId, onOpenReview, onBack }: Props) {
               Remove selected
             </button>
             <button onClick={() => void addKindle()} disabled={busy}>Add Kindle highlight</button>
-            <button onClick={() => onOpenReview(firstReviewable)} disabled={firstReviewable < 0}>
-              Review {Math.max(firstReviewable, 0) + 1} of {captures.length} →
+            <button
+              onClick={() => onOpenReview(firstReviewable)}
+              disabled={firstStep < 0}
+              title={firstStep >= 0 ? undefined : steps.length > 0 ? 'Waiting for extraction' : 'Nothing to review yet'}
+            >
+              {/* "of 0" must be impossible: with no position to claim, show the bare label. */}
+              {firstStep >= 0 ? `Review ${firstStep + 1} of ${steps.length} →` : 'Review →'}
             </button>
             <button onClick={() => void push()} disabled={approved === 0 || busy}>
               Push all approved ({approved})
             </button>
           </section>
           {pushError && <p role="alert" className="error">{pushError}</p>}
+          {steps.length === 0 && (
+            <p className="muted">
+              {captures.length === 0
+                ? 'No photos yet. Drop photos above, or add a Kindle highlight.'
+                : 'Nothing left to review in this batch.'}
+            </p>
+          )}
           <ul className="grid">
             {visible.map(({ c, index }) => (
               <Thumb
                 key={c.id}
                 capture={c}
-                position={index + 1}
+                position={positions.get(c.id) ?? null}
                 imageUrl={c.image_file ? api.imageUrl(c.id) : null}
                 selected={selected.has(c.id)}
                 disabled={busy}

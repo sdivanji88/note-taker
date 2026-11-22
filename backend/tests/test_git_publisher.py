@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from note_taker.git_publisher import GitError, GitPublisher
+from note_taker.git_publisher import GitError, GitPublisher, same_remote
 
 
 def git(repo: Path, *args: str) -> str:
@@ -221,3 +221,47 @@ def test_is_dirty_sees_untracked_books_despite_user_config(pub):
     (pub.repo_dir / "books").mkdir()
     (pub.repo_dir / "books" / "x.md").write_text("x")
     assert pub.is_dirty("books")
+
+
+@pytest.mark.parametrize(
+    "a,b",
+    [
+        ("https://github.com/me/notes", "https://github.com/me/notes.git"),
+        ("https://github.com/me/notes/", "https://github.com/me/notes"),
+        ("https://github.com/me/notes.git/", "https://github.com/me/notes"),
+        ("https://github.com/me/notes.git", "https://github.com/me/notes.git"),
+        ("  https://github.com/me/notes\n", "https://github.com/me/notes"),
+        ("https://tok@github.com/me/notes.git", "https://github.com/me/notes"),
+        ("https://me:ghp_x@github.com/me/notes", "https://github.com/me/notes.git"),
+        ("http://me:pw@host/r", "http://host/r"),
+        ("https://a:b@github.com/me/notes", "https://c@github.com/me/notes"),
+        ("git@github.com:me/notes.git", "git@github.com:me/notes"),
+        ("ssh://git@github.com/me/notes.git/", "ssh://git@github.com/me/notes"),
+    ],
+)
+def test_same_remote_treats_url_equivalents_as_equal(a, b):
+    assert same_remote(a, b) and same_remote(b, a)
+
+
+@pytest.mark.parametrize(
+    "a,b",
+    [
+        ("git@github.com:me/notes.git", "other@github.com:me/notes.git"),  # ssh user is an identity
+        ("ssh://alice@h/x", "ssh://bob@h/x"),
+        ("git@github.com:me/notes.git", "ssh://git@github.com/me/notes.git"),  # scp vs ssh://
+        ("https://github.com/me/notes", "https://github.com/me/other"),
+        ("https://github.com/Me/Notes", "https://github.com/me/notes"),  # paths are case-sensitive
+        ("https://github.com/me/notes", "http://github.com/me/notes"),
+        ("https://github.com/me/notes", "https://gitlab.com/me/notes"),
+        ("https://github.com/me/notes", ""),
+        # Only ONE ".git" is a cosmetic suffix; a repo may really be called "x.git".
+        ("https://github.com/o/x.git.git", "https://github.com/o/x.git"),
+        ("git@github.com:o/x.git.git", "git@github.com:o/x.git"),
+        # Filesystem paths: /srv/r.git and /srv/r are different directories.
+        ("/srv/r.git", "/srv/r"),
+        ("/srv/r/", "/srv/r"),
+        ("file:///srv/r.git", "file:///srv/r"),
+    ],
+)
+def test_same_remote_keeps_genuinely_different_remotes_apart(a, b):
+    assert not same_remote(a, b) and not same_remote(b, a)

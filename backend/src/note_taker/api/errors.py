@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Mapping, Sequence
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,8 +13,8 @@ from note_taker.git_publisher import GitError
 from note_taker.push_service import PushError
 from note_taker.redact import mask_credentials
 
-# Every failure leaves the API as {"error": {"code", "message"}}: the renderer has one
-# shape to handle, and messages never carry stack traces, file paths or credentials.
+# Every failure leaves the API as {"error": {"code", "message"[, "fields"]}}: the renderer
+# has one shape to handle, and messages never carry stack traces, file paths or credentials.
 
 log = logging.getLogger(__name__)
 
@@ -25,28 +26,51 @@ _PUSH_ERROR_STATUS = {
     "unknown_book": 422,
     "wrong_branch": 409,
     "remote_mismatch": 409,
+    "bookkeeping_failed": 500,
 }
 
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed", 413: "payload_too_large"}
 
 
-def _error(status: int, code: str, message: str) -> JSONResponse:
-    return JSONResponse({"error": {"code": code, "message": message}}, status_code=status)
+def _error(status: int, code: str, message: str, fields: Sequence[str] = ()) -> JSONResponse:
+    body = {"code": code, "message": message}
+    if fields:
+        # Additive: lets the UI mark inputs without parsing `message`. Absent (not empty)
+        # when nothing is nameable so existing clients and tests see the old shape.
+        body["fields"] = list(fields)
+    return JSONResponse({"error": body}, status_code=status)
+
+
+def _validation_message(errors: Sequence[Mapping]) -> str:
+    # loc + msg only: pydantic's "input" echo could carry whatever the client sent.
+    parts = [
+        f"{'.'.join(str(p) for p in e.get('loc', ()))}: {e.get('msg', 'invalid')}" for e in errors
+    ]
+    return "; ".join(parts) or "invalid request"
+
+
+def _validation_fields(errors: Sequence[Mapping]) -> list[str]:
+    """Dotted input paths pydantic rejected, without the leading `body`, deduplicated in order."""
+    paths = []
+    for e in errors:
+        loc = tuple(e.get("loc", ()))
+        if loc[:1] == ("body",):
+            loc = loc[1:]
+        # A malformed-JSON error locates a character offset, not a field the user can fix.
+        if any(isinstance(p, str) for p in loc):
+            paths.append(".".join(str(p) for p in loc))
+    return list(dict.fromkeys(paths))
 
 
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def api_error(_: Request, exc: ApiError):
-        return _error(exc.status, exc.code, mask_credentials(exc.message))
+        return _error(exc.status, exc.code, mask_credentials(exc.message), exc.fields)
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, exc: RequestValidationError):
-        # loc + msg only: pydantic's "input" echo could carry whatever the client sent.
-        parts = [
-            f"{'.'.join(str(p) for p in e.get('loc', ()))}: {e.get('msg', 'invalid')}"
-            for e in exc.errors()
-        ]
-        return _error(422, "invalid_request", "; ".join(parts) or "invalid request")
+        errors = exc.errors()
+        return _error(422, "invalid_request", _validation_message(errors), _validation_fields(errors))
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(_: Request, exc: StarletteHTTPException):

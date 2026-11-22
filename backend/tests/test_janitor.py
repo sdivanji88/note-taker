@@ -129,9 +129,16 @@ def test_corrupt_batch_does_not_stop_healthy_expired_one(store, clock, data_path
     assert report.warned == [healthy.id]
 
 
+def test_stray_file_in_batches_dir_does_not_stop_the_janitor(store, clock, data_paths):
+    healthy = store.create(None)
+    (data_paths.batches_dir / ".DS_Store").write_bytes(b"\x00")
+    clock.t = START + timedelta(days=40)
+    assert _janitor(store, clock).run().warned == [healthy.id]
+
+
 def test_list_raising_yields_empty_report(clock):
     class Broken:
-        def list_readable(self):
+        def list(self):
             raise OSError("disk gone")
 
     j = Janitor(Broken(), lambda: _settings(), clock)
@@ -143,7 +150,7 @@ def test_batch_touched_before_warning_is_left_alone(store, clock):
     clock.t = START + timedelta(days=40)
     stale = store.get(b.id)
     store.save(store.get(b.id))  # user edit after the janitor listed the batch
-    store.list_readable = lambda: iter([stale])
+    store.list = lambda: iter([stale])
     assert _janitor(store, clock).run() == JanitorReport()
     assert store.get(b.id).warned_at is None
 
@@ -157,7 +164,7 @@ def test_batch_finished_before_warning_is_left_alone(store, clock):
     for c in (batch := store.get(b.id)).captures:
         c.status = CaptureStatus.pushed
     store.save(batch, touch=False)
-    store.list_readable = lambda: iter([stale])
+    store.list = lambda: iter([stale])
     assert _janitor(store, clock).run() == JanitorReport()
     assert store.get(b.id).warned_at is None
 
@@ -170,7 +177,7 @@ def test_batch_touched_before_delete_is_left_alone(store, clock):
     clock.t += timedelta(hours=25)
     stale = store.get(b.id)
     store.save(store.get(b.id))  # user edit moves updated_at to now
-    store.list_readable = lambda: iter([stale])
+    store.list = lambda: iter([stale])
     report = j.run()
     assert report == JanitorReport()
     assert store.get(b.id)
@@ -238,7 +245,7 @@ def test_stale_warning_between_listing_and_delete_is_not_deleted(store, clock):
     stale = store.get(b.id)
     _touch_at(store, clock, b.id, START + timedelta(days=29))
     clock.t = START + timedelta(days=60)
-    store.list_readable = lambda: iter([stale])
+    store.list = lambda: iter([stale])
     assert j.run() == JanitorReport()
     assert store.get(b.id)
 

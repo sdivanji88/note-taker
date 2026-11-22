@@ -1,5 +1,7 @@
+import logging
+
 import pytest
-from conftest import dt
+from conftest import corrupt_batch, dt
 
 from note_taker.batch_store import (
     BatchNotFound,
@@ -151,15 +153,59 @@ def keep_capture(store, batch):
     return store.add_kindle(batch.id, [], None, None, None, None)
 
 
-def test_list_readable_skips_corrupt_batches(data_paths):
+def test_list_skips_corrupt_batch_json(data_paths, caplog):
+    store = BatchStore(data_paths)
+    good = store.create(None)
+    corrupt_batch(data_paths)
+    with caplog.at_level(logging.WARNING):
+        assert [b.id for b in store.list()] == [good.id]
+    (rec,) = [r for r in caplog.records if "skipping unreadable batch" in r.getMessage()]
+    assert "01ARZ3NDEKTSV4RRFFQ69G5FAV" in rec.getMessage()
+    assert rec.exc_info is None  # one line per bad batch, not a traceback per listing
+
+
+def test_list_skips_schema_invalid_batch_json(data_paths):
     store = BatchStore(data_paths)
     good = store.create(None)
     bad = data_paths.batch_file("01ARZ3NDEKTSV4RRFFQ69G5FAV")
     bad.parent.mkdir(parents=True)
-    bad.write_text("{nope")
-    assert [b.id for b in store.list_readable()] == [good.id]
-    with pytest.raises(ValueError):  # json.JSONDecodeError
-        store.list()
+    bad.write_text('{"id": 5}')
+    assert [b.id for b in store.list()] == [good.id]
+
+
+def test_list_ignores_stray_files_in_batches_dir(data_paths):
+    store = BatchStore(data_paths)
+    good = store.create(None)
+    (data_paths.batches_dir / ".DS_Store").write_bytes(b"\x00\x00")  # Finder litter
+    assert [b.id for b in store.list()] == [good.id]
+    with pytest.raises(BatchNotFound):
+        store.find_capture("nope")
+
+
+def test_list_skips_batch_json_that_cannot_be_read(data_paths):
+    store = BatchStore(data_paths)
+    good = store.create(None)
+    # A directory where the file should be: an OSError (not ValueError) on read.
+    data_paths.batch_file("01ARZ3NDEKTSV4RRFFQ69G5FAV").mkdir(parents=True)
+    assert [b.id for b in store.list()] == [good.id]
+
+
+def test_unreadable_batch_warns_once_per_process_then_goes_quiet(data_paths, caplog):
+    store = BatchStore(data_paths)
+    corrupt_batch(data_paths)
+    with caplog.at_level(logging.DEBUG):
+        for _ in range(3):
+            store.list()
+    skipped = [r for r in caplog.records if "skipping unreadable batch" in r.getMessage()]
+    assert [r.levelno for r in skipped] == [logging.WARNING, logging.DEBUG, logging.DEBUG]
+
+
+def test_find_capture_finds_capture_despite_corrupt_sibling(data_paths):
+    store = BatchStore(data_paths)
+    corrupt_batch(data_paths)
+    batch = store.create(None)
+    cap = keep_capture(store, batch)
+    assert store.find_capture(cap.id)[1].id == cap.id
 
 
 def test_delete_if_deletes_only_when_predicate_holds(data_paths):

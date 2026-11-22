@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -20,13 +20,17 @@ from note_taker.settings_store import SettingsStore
 
 
 class ApiError(Exception):
-    """Raised by routes; rendered as {"error": {"code", "message"}} with `status`."""
+    """Raised by routes; rendered as {"error": {"code", "message"[, "fields"]}} with `status`.
 
-    def __init__(self, status: int, code: str, message: str):
+    `fields` names the offending inputs (dotted paths) for 422s the UI can attach to a control.
+    """
+
+    def __init__(self, status: int, code: str, message: str, fields: Sequence[str] = ()):
         super().__init__(message)
         self.status = status
         self.code = code
         self.message = message
+        self.fields = tuple(fields)
 
 
 @dataclass

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import net from 'node:net'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { pickFreePort, startBackend } from '../electron/main/backend'
 
 // A stand-in for the uv child: emits stderr/exit and records signals, never runs anything.
@@ -61,6 +61,15 @@ describe('pickFreePort', () => {
 })
 
 describe('startBackend', () => {
+  // startBackend forwards child stderr to the real stderr; these tests feed it fake crash
+  // output (including a 20 KB filler), which must not pollute the `vitest run` report.
+  beforeEach(() => {
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('spawns uv with the token only in the environment and resolves once /ping answers', async () => {
     const child = new FakeChild()
     const fetchMock = vi.fn().mockRejectedValueOnce(new Error('refused')).mockResolvedValue(ok())

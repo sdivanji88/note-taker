@@ -16,7 +16,8 @@ export const REVIEWABLE: CaptureStatus[] = ['ready', 'failed', 'approved']
 interface Props {
   capture: Capture
   imageUrl: string | null
-  position: number
+  // 1-based place among the captures the user can step through; null for discarded ones.
+  position: number | null
   selected: boolean
   disabled: boolean
   onToggle: () => void
@@ -26,8 +27,8 @@ interface Props {
 export default function Thumb({ capture, imageUrl, position, selected, disabled, onToggle, onOpen }: Props) {
   const reviewable = REVIEWABLE.includes(capture.status)
   const label = [
-    capture.source === 'kindle' ? 'Kindle highlight' : 'Photo',
-    String(position),
+    (capture.source === 'kindle' ? 'Kindle highlight' : 'Photo') + (position === null ? ' (discarded)' : ''),
+    position === null ? null : String(position),
     capture.page != null ? `page ${capture.page}` : null,
     capture.book_slug
   ]

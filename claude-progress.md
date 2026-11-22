@@ -141,3 +141,51 @@
 **Benchmark Results**: unit ~38s; integration ~23s; smoke ~2s to ping.
 
 **Next session**: Merge `fix/recover-fetch-timeout`; optional deferred polish.
+
+### Session 6 -- 2026-11-22 (deferred-findings polish)
+
+**Goal**: Deferred-findings polish on `polish/deferred-findings`.
+
+**What was done**:
+- Ten implementation commits: `bb9cb55`, `a185d27`, `2625988`, `560de31`, `ad9195c`, `dd92c00`, `01c9b12`, `749f5ea`, `7e9f1e5`, `410f11c`.
+- The bookkeeping pass updates `feature_list.json` (six polish rows), this log, `evaluator-rubric.md`, `quality-document.md`, `session-handoff.md`, and the accuracy lines in `docs/deferred-findings.md` and `docs/ARCHITECTURE.md`. Working tree only; not committed. That pass did not have the gate numbers below.
+- This orchestration pass, after those bookkeeping edits, re-ran the gates. No duration recorded for that pass.
+
+**Decisions**:
+- Tolerant `list()` instead of `list_readable()`.
+- `same_remote` lives in `git_publisher.py`, with a strict path compare.
+- Back-out is delete-on-leave, not lazy create.
+
+**Issues**:
+- `scripts/architecture-review.sh` exit 1 is expired Claude CLI OAuth (`Failed to authenticate`, script recorded `AUDIT_ERROR`), not an architecture-rule finding, and it is not a pass. The static stage was clean (no file over 500 lines, no file over 15 imports); the LLM stage did not run.
+- `scripts/code-review.sh` exited 0 and wrote only a placeholder (same expired OAuth). Not verified.
+- Found-while-polishing items stay open.
+
+**Benchmark Results**:
+- This orchestration pass, after the bookkeeping edits (the implementation session did not have these numbers):
+  - `scripts/test.sh` exit 0: pytest 548 passed, 2 deselected in 46.60s; vitest 252 passed in 2.41s.
+  - `scripts/integration.sh` exit 0: 231 passed in 25.97s.
+  - `scripts/ui-test.sh` exit 0: vitest 252, typecheck + electron-vite build succeeded, Playwright 3 passed in 16.3s (Kindle smoke, back-out e2e, photo path).
+  - `scripts/lint.sh` exit 0: ruff clean, frontend typecheck passed.
+  - `scripts/architecture-review.sh` exit 1: not a pass (auth, see Issues).
+  - `scripts/code-review.sh` exit 0: placeholder only (see Issues).
+
+**Next session**: Re-authenticate the `claude` CLI and re-run `scripts/architecture-review.sh` and `scripts/code-review.sh`, then push `polish/deferred-findings` and open the PR.
+
+### Session 6b -- 2026-11-22 (architecture LLM via Cursor agent)
+
+**Goal**: Complete architecture-review Stage 2 without Claude CLI (headless Cursor Agent).
+
+**What was done**:
+- Updated `scripts/architecture-review.sh` and `scripts/code-review.sh` to prefer `agent` / `cursor-agent` (`-p --mode ask --output-format text`), fall back to `claude`; architecture uses merge-base `main...HEAD` diff; fail on ambiguous audit output.
+- Ran `bash scripts/architecture-review.sh`: exit 0, LLM=`agent`, PASS (~107s, ~275KB branch diff).
+- Struck the Claude-OAuth blocker in `docs/deferred-findings.md`; refreshed `session-handoff.md`.
+
+**Decisions**:
+- Cursor Agent is the primary headless LLM for local gates when Claude is unavailable.
+
+**Issues**: none for the architecture hard gate.
+
+**Benchmark Results**: architecture-review ~107s wall clock with `agent`.
+
+**Next session**: Merge PR #4; optional soft code-review with `agent`; triage "Found while polishing".

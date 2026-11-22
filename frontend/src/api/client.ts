@@ -25,6 +25,8 @@ const EVENT_TYPES: BatchEvent['type'][] = [
   'batch.push_progress'
 ]
 
+export type SubscriptionState = 'live' | 'reconnecting' | 'closed'
+
 export type ApiClient = ReturnType<typeof createClient>
 
 export function createClient(cfg: BackendConfig) {
@@ -33,15 +35,18 @@ export function createClient(cfg: BackendConfig) {
   async function parseError(res: Response): Promise<ApiError> {
     let code = 'http_error'
     let message = res.statusText || `HTTP ${res.status}`
+    let fields: string[] = []
     try {
       const body = await res.json()
       if (typeof body?.error?.code === 'string') code = body.error.code
       if (typeof body?.error?.message === 'string') message = body.error.message
+      const f = body?.error?.fields
+      if (Array.isArray(f)) fields = f.filter((x): x is string => typeof x === 'string')
     } catch {
       // Not the standard error body (proxy page, empty reply): keep the fallback.
     }
     // The backend redacts its own messages; this is a second line of defence.
-    return new ApiError(res.status, code, message.split(token).join('[redacted]'))
+    return new ApiError(res.status, code, message.split(token).join('[redacted]'), fields)
   }
 
   async function request<T>(
@@ -92,7 +97,10 @@ export function createClient(cfg: BackendConfig) {
     getBatch: (batchId: string) => request<Batch>('GET', `/batches/${enc(batchId)}`),
     patchBatch: (batchId: string, body: { default_book_slug: string | null }) =>
       request<Batch>('PATCH', `/batches/${enc(batchId)}`, { json: body }),
-    deleteBatch: (batchId: string) => request<void>('DELETE', `/batches/${enc(batchId)}`),
+    // onlyIfEmpty: the backend ignores the call unless the batch is open with no captures,
+    // so a caller cleaning up after the user backs out can't delete real work.
+    deleteBatch: (batchId: string, opts: { onlyIfEmpty?: boolean } = {}) =>
+      request<void>('DELETE', `/batches/${enc(batchId)}${opts.onlyIfEmpty ? '?only_if_empty=true' : ''}`),
 
     uploadPhotos: (batchId: string, files: File[]) => {
       const form = new FormData()
@@ -112,11 +120,30 @@ export function createClient(cfg: BackendConfig) {
 
     imageUrl: (captureId: string) => withToken(`/captures/${enc(captureId)}/image`),
 
-    subscribe: (batchId: string, onEvent: (e: BatchEvent) => void): (() => void) => {
+    // `onState` lets callers tell "the stream is down" from "nothing is happening": the
+    // browser retries on its own after a drop ('reconnecting') and only gives up for good
+    // ('closed', e.g. the server answered with a non-event-stream status).
+    subscribe: (
+      batchId: string,
+      onEvent: (e: BatchEvent) => void,
+      onState?: (s: SubscriptionState) => void
+    ): (() => void) => {
       const es = new EventSource(withToken(`/batches/${enc(batchId)}/events`))
+      es.onopen = () => onState?.('live')
+      es.onerror = () => onState?.(es.readyState === EventSource.CLOSED ? 'closed' : 'reconnecting')
       for (const type of EVENT_TYPES) {
         es.addEventListener(type, (e) => {
-          onEvent({ type, data: JSON.parse((e as MessageEvent).data) } as BatchEvent)
+          let data: unknown
+          try {
+            data = JSON.parse((e as MessageEvent).data)
+          } catch {
+            // One bad frame must not kill the listener or flip the connection state; the
+            // next event (or a refetch) repairs the view. Never log the payload: it may
+            // hold highlight text.
+            console.warn(`dropped malformed ${type} event`)
+            return
+          }
+          onEvent({ type, data } as BatchEvent)
         })
       }
       return () => es.close()

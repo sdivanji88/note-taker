@@ -90,9 +90,16 @@ def patch_batch(batch_id: str, body: BatchPatch, svc: Svc) -> dict:
 
 
 @router.delete("/batches/{batch_id}", status_code=204)
-def delete_batch(batch_id: str, svc: Svc) -> Response:
+def delete_batch(batch_id: str, svc: Svc, only_if_empty: bool = False) -> Response:
     # BatchStore.delete is a silent no-op for unknown ids; the client deserves a 404.
     batch = svc.store.get(batch_id)
+    if only_if_empty:
+        # "Ensure an empty batch is gone", for UI back-out cleanup. Decided under the
+        # store lock so an upload in flight can't land between the check and the delete;
+        # 204 either way (no 409 while pushing), because the caller's goal is "no
+        # leftover empty batch" and a batch that kept its captures is not leftover.
+        svc.store.delete_if(batch_id, lambda b: not b.captures and b.status is BatchStatus.open)
+        return Response(status_code=204)
     ensure_not_pushing(batch)
     if not svc.store.delete_if(batch_id, lambda b: b.status is not BatchStatus.pushing):
         # A push started (409) or the batch vanished (404) since the read above.

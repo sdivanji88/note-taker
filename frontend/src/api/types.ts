@@ -96,10 +96,19 @@ export interface Settings {
   remote_url_has_credentials?: boolean
 }
 
+// Why a clone that exists still can't be pushed to; the message is already masked by the
+// backend and names both the actual and the expected value.
+export interface RepoProblem {
+  code: 'wrong_branch' | 'remote_mismatch' | 'git_failed'
+  message: string
+}
+
 export interface RepoHealth {
   cloned: boolean
   dirty: boolean | null
   path: string
+  // Always present; null means nothing is blocking a push (beyond `cloned`/`dirty`).
+  problem: RepoProblem | null
 }
 
 export interface Health {
@@ -171,12 +180,15 @@ export interface BackendConfig {
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
+  // Dotted request paths a 422 rejected (e.g. "notes_repo.branch"); [] for every other error.
+  readonly fields: string[]
 
   // status 0 means the request never got an HTTP response (backend down).
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, fields: string[] = []) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.fields = fields
   }
 }

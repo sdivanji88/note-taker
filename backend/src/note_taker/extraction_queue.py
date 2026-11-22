@@ -233,6 +233,11 @@ class ExtractionQueue:
         if not ok:
             log.warning("extractor unavailable capture=%s: %s", job.capture_id, detail)
             message = f"extractor unavailable: {detail}"
+            # `capture` was read fresh from the store above. The 30 s health tick re-queues
+            # every pending capture; when the reason hasn't changed, skip the batch.json
+            # rewrite and the duplicate status event.
+            if capture.error == message:
+                return executor
             if self._modify_if(job, lambda c: c.status is CaptureStatus.pending, _set_error(message)):
                 self._publish_status(job, CaptureStatus.pending, message)
             return executor
@@ -441,6 +446,10 @@ def _set_ready(result: ExtractionResult, extractor_name: str) -> Callable[[Captu
             Highlight(text=h.text, note=result.note if i == 0 else None)
             for i, h in enumerate(result.highlights)
         ]
+        if not c.highlights and result.note:
+            # Don't drop a margin note just because no highlight was found. Empty text
+            # keeps it unapprovable, so the user must fix it before anything is pushed.
+            c.highlights = [Highlight(text="", note=result.note)]
         # The user may have typed these while we worked; their values win.
         if c.page is None:
             c.page = result.page

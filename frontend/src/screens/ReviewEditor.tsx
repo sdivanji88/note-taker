@@ -3,6 +3,8 @@ import { useApi } from '../api/context'
 import type { Batch, Capture, ExtractorKind } from '../api/types'
 import CapturePane, { type PaneActions } from '../components/CapturePane'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { useBatchUpdates } from '../hooks/useBatchUpdates'
+import { navigable } from '../review/navigable'
 import { isGone, reviewErrorMessage } from '../review/draft'
 
 interface Props {
@@ -12,12 +14,7 @@ interface Props {
   onBack: () => void
 }
 
-const REFETCH_DEBOUNCE_MS = 200
 const GONE = 'This capture no longer exists.'
-
-// Pushed and discarded captures are never shown; pending/extracting ones are shown
-// read-only so the "k of N" count matches what the grid displays.
-const navigable = (c: Capture) => c.status !== 'pushed' && c.status !== 'discarded'
 
 // Nearest navigable position to `from`, preferring the later one on a tie.
 function nearest(captures: Capture[], from: number): number {
@@ -78,17 +75,9 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
     }
   }, [load])
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const unsubscribe = api.subscribe(batchId, () => {
-      clearTimeout(timer)
-      timer = setTimeout(() => void load(), REFETCH_DEBOUNCE_MS)
-    })
-    return () => {
-      clearTimeout(timer)
-      unsubscribe()
-    }
-  }, [api, batchId, load])
+  // No banner here: the editor shows the batch only as context, but it still catches up
+  // after a reconnect so statuses it missed don't leave it stale.
+  useBatchUpdates(batchId, load)
 
   useEffect(() => {
     api.getSettings().then(
@@ -123,10 +112,43 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
     return true
   }, [])
 
+  // The just-saved capture the user is leaving, if it is a Kindle entry they never filled
+  // in. Deleted here (best effort, awaited so the batch grid's reload can't race it)
+  // rather than on unmount: only a deliberate Back/Prev/Next may remove anything.
+  // Resolves to the removed id, or null when nothing was removed.
+  const dropBlankKindle = useCallback(async (): Promise<string | null> => {
+    const pane = actionsRef.current
+    const id = pane?.blankKindleId()
+    if (!pane || !id) return null
+    // Frozen in the same tick as the blank check: a keystroke during the round-trip would
+    // otherwise be lost along with the capture.
+    pane.setLeaving(true)
+    try {
+      await api.deleteCapture(id)
+      return id
+    } catch {
+      pane.setLeaving(false) // Cleanup is a courtesy; the capture stays and the user moves on.
+      return null
+    }
+  }, [api])
+
+  // Mirrors the server after a delete without a refetch, so the position count and
+  // Prev/Next stop counting the removed capture.
+  const forget = useCallback((id: string) => {
+    if (!mounted.current) return
+    mutations.current++
+    setBatch((b) => b && { ...b, captures: b.captures.filter((x) => x.id !== id) })
+  }, [])
+
   const go = useCallback(async (offset: number, viaKey = false) => {
     // Never leave a capture with edits still unsaved.
-    if (await actionsRef.current?.flush()) moveTo(offset, viaKey)
-  }, [moveTo])
+    if (!(await actionsRef.current?.flush())) return
+    const { nav: n, position: p } = view.current
+    if (n[p - 1 + offset] === undefined) return // nowhere to go: stay, and keep the capture
+    const dropped = await dropBlankKindle()
+    moveTo(offset, viaKey)
+    if (dropped) forget(dropped) // same tick as moveTo, so one render sees both
+  }, [moveTo, dropBlankKindle, forget])
 
   const afterApproved = useCallback(() => {
     if (!moveTo(1)) onBack()
@@ -138,20 +160,30 @@ export default function ReviewEditor({ batchId, index, onBack }: Props) {
   // Leaving counts as navigation: unsaved edits must be saved first, and if they can't be
   // the user decides explicitly instead of losing them to the unmount flush.
   const back = useCallback(async () => {
-    if (!actionsRef.current || (await actionsRef.current.flush())) onBack()
-    else if (mounted.current) setConfirmLeave(true)
-  }, [onBack])
+    if (!actionsRef.current || (await actionsRef.current.flush())) {
+      await dropBlankKindle()
+      onBack()
+    } else if (mounted.current) setConfirmLeave(true)
+  }, [onBack, dropBlankKindle])
 
-  const keys = useRef({ go, approve: () => actionsRef.current?.approve() })
-  keys.current = { go, approve: () => actionsRef.current?.approve() }
+  const goRef = useRef(go)
+  goRef.current = go
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (document.querySelector('[role="dialog"]')) return
+      // The Enter that confirms an IME candidate (keyCode 229 on some engines) must reach
+      // the input untouched, and a held key must not approve repeatedly.
+      if (e.isComposing || e.keyCode === 229) return
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        if (e.repeat) return
+        const pane = actionsRef.current
+        // Not claimed (no preventDefault) when Approve would be disabled: the shortcut
+        // must do exactly what the button would, which here is nothing.
+        if (!pane?.canApprove()) return
         e.preventDefault()
-        void keys.current.approve()
+        void pane.approve()
       } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isTextEntry(e.target)) {
-        void keys.current.go(e.key === 'ArrowRight' ? 1 : -1, true)
+        void goRef.current(e.key === 'ArrowRight' ? 1 : -1, true)
       }
     }
     window.addEventListener('keydown', onKey)

@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react'
+import { act, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../src/api/types'
 import { ARROW, hl, ready, settle, setup, type } from './reviewSetup'
@@ -12,7 +12,7 @@ describe('ReviewEditor rendering', () => {
     const s = setup([ready()])
     s.start()
     await settle()
-    expect(screen.getByLabelText('Page')).toHaveValue(12)
+    expect(screen.getByLabelText('Page')).toHaveValue('12')
     expect(screen.getByLabelText('Chapter')).toHaveValue('One')
     expect(screen.getAllByLabelText('Highlight text')).toHaveLength(2)
     expect(screen.getAllByLabelText('My note')[1]).toHaveValue('my note')
@@ -387,5 +387,20 @@ describe('ReviewEditor keyboard', () => {
     await settle()
     expect(s.patchCapture).not.toHaveBeenCalled()
     expect(screen.getByLabelText('Chapter')).toHaveValue('one')
+  })
+})
+
+describe('ReviewEditor live updates', () => {
+  it('refetches once when the event stream comes back, without showing a banner', async () => {
+    const s = setup([ready()])
+    s.start()
+    await settle()
+    expect(s.getBatch).toHaveBeenCalledTimes(1)
+    act(() => s.setConnection('reconnecting'))
+    await settle(5000)
+    expect(screen.queryByText(/live updates/i)).toBeNull()
+    act(() => s.setConnection('live'))
+    await settle()
+    expect(s.getBatch).toHaveBeenCalledTimes(2)
   })
 })
