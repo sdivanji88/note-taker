@@ -81,6 +81,16 @@ def test_push_refuses_remote_mismatch_with_masked_message(env, tmp_path):
     assert env.store.get(batch.id) == batch
 
 
+@pytest.mark.parametrize("configure", [lambda url: url[: -len(".git")], lambda url: url + "/"])
+def test_push_accepts_origin_that_differs_only_by_git_suffix_or_slash(env, configure):
+    env.books.create("Dune", None, Kind.fiction)
+    batch = add_batch(env, "dune")
+    env.settings.notes_repo.remote_url = configure(str(env.remote))  # origin keeps the real URL
+
+    assert env.svc.push(batch.id).highlights_written == 1
+    assert remote_text(env) is not None
+
+
 def test_sync_does_not_rebase_a_wrong_branch(env, tmp_path):
     git(env.clone, "checkout", "-b", "wip")
     head = git(env.clone, "rev-parse", "wip")

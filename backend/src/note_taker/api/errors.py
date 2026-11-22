@@ -25,6 +25,7 @@ _PUSH_ERROR_STATUS = {
     "unknown_book": 422,
     "wrong_branch": 409,
     "remote_mismatch": 409,
+    "bookkeeping_failed": 500,
 }
 
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed", 413: "payload_too_large"}

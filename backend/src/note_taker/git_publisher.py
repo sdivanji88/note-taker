@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -8,6 +9,32 @@ LOCAL_TIMEOUT_S = 20.0
 
 # The session token must not leak to git, its hooks or credential helpers.
 _SECRET_ENV = ("NOTE_TAKER_TOKEN",)
+
+
+# http(s) credentials only: they are secrets that may be set on one URL and not the other.
+# Deliberately not redact._USERINFO, which would also strip the user of an ssh URL.
+_HTTP_USERINFO = re.compile(r"^(https?://)[^/@\s]+@")
+
+
+def same_remote(a: str, b: str) -> bool:
+    """True if two remote URLs name the same repo, ignoring cosmetic differences.
+
+    Ignored: surrounding whitespace, http(s) userinfo (a token in one URL only), and
+    trailing "/" and ".git" (GitHub serves the same repo with or without them).
+    Deliberately NOT normalised, so a mismatch errs on the side of refusing to push:
+    scp-style vs ssh:// forms, host/path case, and the ssh user (a real identity —
+    `deploy@host` and `git@host` can be different accounts).
+    """
+    return _canonical_remote(a) == _canonical_remote(b)
+
+
+def _canonical_remote(url: str) -> str:
+    url = _HTTP_USERINFO.sub(r"\1", url.strip())
+    while True:
+        stripped = url.rstrip("/").removesuffix(".git")
+        if stripped == url:
+            return url
+        url = stripped
 
 
 class GitError(Exception):
